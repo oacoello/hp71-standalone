@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{
+    background:#003300;
+    color:#00ff00;
+    font-family:monospace;
+    font-size:24px;
+}
+</style>
+</head>
+
+<body>
+
+<pre id="lcd"></pre>
+
+<script>
+
+function updateLCD()
+{
+    fetch("/lcd")
+    .then(r => r.text())
+    .then(t => {
+        document.getElementById("lcd").innerText = t;
+    });
+}
+
+setInterval(updateLCD,100);
+
+</script>
+
+</body>
+</html>
