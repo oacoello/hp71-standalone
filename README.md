@@ -4,6 +4,21 @@ Calculadora artillera standalone basada en un emulador HP-71B, empaquetada como 
 
 La aplicación incluye una interfaz local para cálculo balístico y un backend nativo `hp71_emulator` que procesa los comandos del sistema.
 
+## ¿De qué trata la calculadora?
+
+Santa Barbara FDC es una calculadora de apoyo al cálculo artillero. Su objetivo es asistir en el procesamiento de datos balísticos para piezas de artillería, usando tablas de tiro y un flujo de entrada inspirado en sistemas basados en HP-71B.
+
+La aplicación permite trabajar con datos como:
+
+- tipo de pieza;
+- tipo de proyectil;
+- carga;
+- distancia;
+- elevación;
+- correcciones y parámetros balísticos disponibles en las tablas.
+
+El sistema no reemplaza los procedimientos oficiales de tiro ni la validación doctrinal correspondiente. Es una herramienta de cálculo y entrenamiento orientada a centralizar la interfaz, las tablas y el motor balístico en una aplicación standalone.
+
 ## Descargas
 
 Los instaladores oficiales están publicados en GitHub Releases:
