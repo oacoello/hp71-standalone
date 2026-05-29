@@ -38,7 +38,7 @@ cleanup() {
 trap cleanup EXIT
 
 for _ in {1..20}; do
-    if curl -fsS http://127.0.0.1:8080/ | grep -q "SANTA BARBARA"; then
+    if curl -fsS http://127.0.0.1:8080/ 2>/dev/null | grep -q "SANTA BARBARA"; then
         echo "OK: backend served index.html"
         break
     fi
@@ -46,4 +46,6 @@ for _ in {1..20}; do
 done
 
 curl -fsS http://127.0.0.1:8080/ | grep -q "SANTA BARBARA"
+curl -fsS -X POST --data-urlencode "cmd=MAIN" http://127.0.0.1:8080/input | grep -q .
+echo "OK: backend accepted input"
 echo "OK: deb package structure and executable permissions verified"

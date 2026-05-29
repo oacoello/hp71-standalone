@@ -241,6 +241,14 @@ int main()
 
     engine.resetData();
 
+#ifndef _WIN32
+    if(!isatty(STDIN_FILENO))
+    {
+        runServer();
+        return 0;
+    }
+#endif
+
     std::thread server_thread(runServer);
     std::thread console_thread(runConsole);
 

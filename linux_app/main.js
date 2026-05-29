@@ -158,6 +158,7 @@ function createMainWindow() {
         }
     });
 
+    mainWindow.setMenu(null);
     mainWindow.loadURL(`http://127.0.0.1:${UI_PORT}`);
 
     mainWindow.once("ready-to-show", () => {
