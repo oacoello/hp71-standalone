@@ -10,6 +10,9 @@
   },
   "license": "UNLICENSED",
   "scripts": {
+    "pack:linux": "electron-builder --linux dir",
+    "dist:deb": "electron-builder --linux deb",
+    "dist:win": "electron-builder --win nsis",
     "dist": "electron-builder --linux deb"
   },
   "build": {
@@ -21,6 +24,11 @@
       ],
       "category": "Utility",
       "maintainer": "Dolfo <dolfo@example.com>"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
     },
     "files": [
       "main.js",
