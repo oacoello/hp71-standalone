@@ -26,6 +26,7 @@ cmake_install.cmake
 # Node / Electron
 node_modules/
 linux_app/dist/
+linux_app/release-deb/
 linux_app/node_modules/
 npm-debug.log*
 yarn-debug.log*
