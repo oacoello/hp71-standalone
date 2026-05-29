@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset="utf-8">
+<title>SANTA BARBARA</title>
+
+<style>
+body{
+background:#1b1b1b;
+font-family:Arial;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+margin:0;
+}
+
+.calculator{
+background:#6f6f6f;
+padding:30px;
+border-radius:12px;
+width:880px;
+box-shadow:0 0 40px rgba(0,0,0,.7);
+}
+
+.lcd{
+background:#cbbf97;
+padding:12px;
+border-radius:6px;
+margin-bottom:20px;
+}
+
+#lcdtext{
+background:#1f1f1f;
+color:#baff7c;
+font-family:monospace;
+font-size:26px;
+padding:10px;
+letter-spacing:3px;
+white-space:pre-line;
+}
+
+.keyboard{
+display:flex;
+justify-content:space-between;
+}
+
+.left{
+display:grid;
+grid-template-columns:repeat(10,55px);
+grid-gap:8px;
+}
+
+.right{
+display:grid;
+grid-template-columns:repeat(4,55px);
+grid-gap:8px;
+}
+
+button{
+width:55px;
+height:42px;
+border:none;
+border-radius:6px;
+background:#2b2b2b;
+color:white;
+font-size:15px;
+cursor:pointer;
+}
+
+button.light{ background:#d7d7d7; color:black; }
+button.yellow{ background:#e6c200; color:black; }
+button.blue{ background:#4da6c8; }
+
+.endline{
+height:92px;
+grid-row:span 2;
+}
+
+button:active{ transform:scale(.95); }
+</style>
+</head>
+
+<body>
+
+<div class="calculator">
+
+<div class="lcd">
+<div id="lcdtext">SANTA BARBARA</div>
+</div>
+
+<div class="keyboard">
+
+<div class="left">
+<button data="Q">Q</button><button data="W">W</button><button data="E">E</button>
+<button data="R">R</button><button data="T">T</button><button data="Y">Y</button>
+<button data="U">U</button><button data="I">I</button><button data="O">O</button>
+<button data="P">P</button>
+
+<button data="A">A</button><button data="S">S</button><button data="D">D</button>
+<button data="F">F</button><button data="G">G</button><button data="H">H</button>
+<button data="J">J</button><button data="K">K</button><button data="L">L</button>
+<button data="=">=</button>
+
+<button data="Z">Z</button><button data="X">X</button><button data="C">C</button>
+<button data="V">V</button><button data="B">B</button><button data="N">N</button>
+<button data="M">M</button><button data="(">(</button><button data=")">)</button>
+
+<button class="endline" data="ENTER">ENDLINE</button>
+
+<button data="ON">ON</button>
+<button class="yellow" data="F">f</button>
+<button class="blue" data="G">g</button>
+<button data="RUN">RUN</button>
+<button data="BACK">←</button>
+<button data="RIGHT">→</button>
+<button data=" ">SPC</button>
+<button data="UP">↑</button>
+<button data="DOWN">↓</button>
+</div>
+
+<div class="right">
+<button class="light" data="7">7</button>
+<button class="light" data="8">8</button>
+<button class="light" data="9">9</button>
+<button class="light" data="/">/</button>
+
+<button class="light" data="4">4</button>
+<button class="light" data="5">5</button>
+<button class="light" data="6">6</button>
+<button class="light" data="*">*</button>
+
+<button class="light" data="1">1</button>
+<button class="light" data="2">2</button>
+<button class="light" data="3">3</button>
+<button class="light" data="-">-</button>
+
+<button class="light" data="0">0</button>
+<button class="light" data=".">.</button>
+<button class="light" data=",">,</button>
+<button class="light" data="+">+</button>
+</div>
+
+</div>
+</div>
+
+<script>
+
+// ================== 🔥 NUEVA LÓGICA ==================
+let ud_mode = false
+let pieces = []
+
+// La pieza base real viene del flujo COB_BASE del backend.
+// JavaScript usa índice 0, por eso PIECE 1 = index 0, PIECE 2 = index 1, etc.
+let basePieceNumber = 1
+let basePieceIndex = 0
+let currentPiece = basePieceIndex
+let waitingBasePieceValue = false
+
+function clampPieceIndex(index){
+    if(pieces.length === 0) return Math.max(0, index)
+    if(index < 0) return 0
+    if(index >= pieces.length) return pieces.length - 1
+    return index
+}
+
+function setBasePiece(num){
+    let n = parseInt(num, 10)
+    if(isNaN(n) || n < 1) return
+
+    basePieceNumber = n
+    basePieceIndex = n - 1
+    currentPiece = clampPieceIndex(basePieceIndex)
+}
+
+function updateBasePieceFromText(text){
+    let raw = String(text || "")
+
+    // Detecta estos formatos:
+    // BASE PIECE 3
+    // BASE PIECE: 3
+    // BASE PIECE (P *): 3
+    let match = raw.match(/BASE\s+PIECE(?:\s*\([^)]*\))?\s*:?\s*(\d+)/i)
+    if(match){
+        setBasePiece(match[1])
+        waitingBasePieceValue = true
+        return
+    }
+
+    // Si ya salimos del prompt de BASE PIECE, dejamos de esperar ese valor.
+    if(!raw.toUpperCase().includes("BASE PIECE")){
+        waitingBasePieceValue = false
+    }
+}
+
+function captureBasePieceBeforeSend(cmd){
+    let clean = String(cmd || "").trim()
+
+    // Si la pantalla estaba pidiendo BASE PIECE y el usuario escribe un número,
+    // esa es la pieza base real que se debe mostrar después del tiro.
+    if(waitingBasePieceValue && /^\d+$/.test(clean)){
+        setBasePiece(clean)
+        waitingBasePieceValue = false
+    }
+}
+
+function parsePieces(text){
+
+pieces = []
+let parts = text.split("----- PIECE")
+
+if(parts.length <= 1) return false
+
+for(let i=1;i<parts.length;i++){
+    let p = "----- PIECE" + parts[i]
+    p = p.trim()
+
+    let match = p.match(/-----\s+PIECE\s+(\d+)\s+-----/i)
+    let pieceNumber = match ? parseInt(match[1], 10) : i
+    let isBasePiece = (pieceNumber === basePieceNumber)
+
+    // quitar COMP CORR de no-base
+    if(!isBasePiece){
+        p = p.replace(/COMP CORR[\s\S]*/,"").trim()
+        p += "\n\nTESON DR EVIL"
+    }
+
+    // base elegida por el usuario
+    if(isBasePiece){
+        if(!p.includes("COMP CORR")){
+            p += "\n\nCOMP CORR (Y N P *)"
+        }
+        if(!p.includes("TESON DR EVIL")){
+            p += "\nTESON DR EVIL"
+        }
+    }
+
+    pieces.push(p)
+}
+
+currentPiece = clampPieceIndex(basePieceIndex)
+return true
+}
+
+function getBasePiece(){
+    if(pieces.length === 0) return null
+    return pieces[clampPieceIndex(basePieceIndex)]
+}
+
+function showPiece(){
+if(pieces.length === 0) return prompt
+return pieces[clampPieceIndex(currentPiece)]
+}
+// ================== FIN NUEVA LÓGICA ==================
+
+
+let buffer=""
+let prompt="SANTA BARBARA"
+
+function updateScreen(){
+
+let text = showPiece()
+
+if(buffer.length>0){
+    text += " " + buffer
+}
+
+document.getElementById("lcdtext").innerText = text
+}
+
+function send(cmd){
+
+captureBasePieceBeforeSend(cmd)
+
+fetch("/input",{
+method:"POST",
+headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+body:"cmd="+encodeURIComponent(cmd)
+})
+.then(r=>r.text())
+.then(t=>{
+
+    updateBasePieceFromText(t)
+
+    if(t.trim() === "INITIALIZE"){
+    prompt = "INITIALIZE"
+    buffer = ""
+    pieces = []
+    updateScreen()
+
+    setTimeout(()=>{
+        fetch("/input",{
+            method:"POST",
+            headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+            body:"cmd="+encodeURIComponent("")
+        })
+        .then(r=>r.text())
+        .then(next=>{
+            updateBasePieceFromText(next)
+            prompt = next
+            buffer = ""
+            pieces = []
+            updateScreen()
+        })
+    }, 2000)
+
+    return
+}
+
+// 🔥 Procesar piezas
+if(parsePieces(t)){
+
+    let raw = t.toUpperCase()
+
+    // SOLO activar cuando el sistema realmente solicita entrada
+    if(raw.trim() === "U/D" || raw.includes("ENTER U/D")){
+        ud_mode = true
+    }
+
+    // 🔥 SALIR DE MODO U/D SOLO CUANDO REGRESA A COMP CORR
+    if(raw.includes("COMP CORR")){
+        ud_mode = false
+    }
+
+    // 🔥 SEGURIDAD: SI VUELVE A PDA (nuevo TGT)
+    if(raw.includes("FUZE PDA")){
+        ud_mode = false
+    }
+
+    let basePiece = getBasePiece()
+
+    // 🔥 LIMPIAR CUALQUIER ARRASTRE DE TIA/HOB EN NUEVO TGT
+    if(raw.includes("FUZE PDA") && basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/FUZE\s+TIA\s+HOB\s+\d+/g, "FUZE PDA")
+    }
+
+    // 🔥 LIMPIAR SIEMPRE PRIMERO EN LA BASE ELEGIDA
+    basePiece = getBasePiece()
+    if(basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/\n\nU\/D \?/g, "")
+    }
+
+    // 🔥 APLICAR SOLO SI ESTÁ ACTIVO EN LA BASE ELEGIDA
+    basePiece = getBasePiece()
+    if(ud_mode && basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece + "\n\nU/D ?"
+    }
+
+}else{
+    prompt = t
+}
+
+buffer=""
+updateScreen()
+
+})
+
+}
+
+document.querySelectorAll("button").forEach(btn=>{
+
+btn.addEventListener("click",()=>{
+
+let key = btn.getAttribute("data")
+if(!key) return
+
+// 🔥 NAVEGACIÓN PIEZAS
+if(key==="UP"){
+    if(pieces.length>0){
+        currentPiece--
+        if(currentPiece<0) currentPiece = pieces.length-1
+        updateScreen()
+    }
+    return
+}
+
+if(key==="DOWN"){
+    if(pieces.length>0){
+        currentPiece++
+        if(currentPiece>=pieces.length) currentPiece = 0
+        updateScreen()
+    }
+    return
+}
+
+// 🔥 FORZAR BASE REAL EN P, Y Y N
+if(key==="P" || key==="Y" || key==="N"){
+    currentPiece = clampPieceIndex(basePieceIndex)
+}
+
+// RUN
+if(key==="RUN"){
+send("MAIN")
+return
+}
+
+// ENTER
+if(key==="ENTER"){
+if(buffer.length===0){
+send("MAIN")
+return
+}
+send(buffer)
+return
+}
+
+if(key==="BACK"){
+buffer = buffer.slice(0,-1)
+updateScreen()
+return
+}
+
+buffer += key
+updateScreen()
+
+})
+
+})
+
+updateScreen()
+
+</script>
+
+<script>
+
+// teclado físico igual
+document.addEventListener("keydown", function(event){
+
+let key = event.key
+
+if(key==="ArrowUp"){
+    if(pieces.length>0){
+        currentPiece--
+        if(currentPiece<0) currentPiece = pieces.length-1
+        updateScreen()
+    }
+    return
+}
+
+if(key==="ArrowDown"){
+    if(pieces.length>0){
+        currentPiece++
+        if(currentPiece>=pieces.length) currentPiece = 0
+        updateScreen()
+    }
+    return
+}
+
+if(key === "Enter"){
+    if(buffer.length === 0){
+        send("MAIN")
+        return
+    }
+    send(buffer)
+    return
+}
+
+if(key === "Backspace"){
+    buffer = buffer.slice(0,-1)
+    updateScreen()
+    event.preventDefault()
+    return
+}
+
+if(!isNaN(key)){
+    buffer += key
+    updateScreen()
+    return
+}
+
+if(key.length === 1 && /[a-zA-Z]/.test(key)){
+    buffer += key.toUpperCase()
+    updateScreen()
+    return
+}
+
+if(key === " "){
+    buffer += " "
+    updateScreen()
+    return
+}
+
+if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
+    buffer += key
+    updateScreen()
+    return
+}
+
+})
+
+</script>
+
+</body>
+</html>
