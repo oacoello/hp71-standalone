@@ -1,0 +1,50 @@
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build outputs
+build/
+build-*/
+dist/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.cmake
+!CMakeLists.txt
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Node / Electron
+node_modules/
+linux_app/dist/
+linux_app/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Packaged artifacts
+*.deb
+*.rpm
+*.zip
+*.tar
+*.tar.gz
+*.7z
+electron_payload/backend/hp71_emulator
+santa-barbara-deb/opt/santa-barbara/hp71_emulator
+
+# Local backups
+*_BACKUP*/
+*.bak*
+web_ui_old/
+
+# Local runtime/auth data
+auth/users.json

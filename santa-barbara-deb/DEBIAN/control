@@ -1,0 +1,7 @@
+Package: santa-barbara-fdc
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Dolfo
+Description: Sistema Santa Barbara FDC HP-71B para artilleria

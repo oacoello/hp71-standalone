@@ -1,0 +1,42 @@
+{
+  "name": "santa-barbara-fdc",
+  "version": "1.0.1",
+  "description": "Sistema Santa Barbara FDC HP-71B",
+  "main": "main.js",
+  "homepage": "https://local.santa-barbara-fdc",
+  "author": {
+    "name": "Dolfo",
+    "email": "dolfo@example.com"
+  },
+  "license": "UNLICENSED",
+  "scripts": {
+    "dist": "electron-builder --linux deb"
+  },
+  "build": {
+    "appId": "hn.fah.santabarbara.fdc",
+    "productName": "Santa Barbara FDC",
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Utility",
+      "maintainer": "Dolfo <dolfo@example.com>"
+    },
+    "files": [
+      "main.js",
+      "splash.html",
+      "logo.png",
+      "splash.gif"
+    ],
+    "extraResources": [
+      {
+        "from": "../electron_payload",
+        "to": "."
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
