@@ -61,8 +61,6 @@ void runServer()
 
     server.Get("/", [](const httplib::Request&, httplib::Response& res)
     {
-        std::ifstream file;
-
         std::filesystem::path exeDir = getExeDir();
 
         std::vector<std::filesystem::path> paths = {
@@ -76,9 +74,14 @@ void runServer()
             exeDir / "../../backend/web_ui/index.html"
         };
 
+        std::ifstream file;
+
         for(const auto& p : paths)
         {
-            file.open(p);
+            if(!std::filesystem::exists(p))
+                continue;
+
+            file = std::ifstream(p, std::ios::in | std::ios::binary);
 
             if(file.is_open())
             {
@@ -89,7 +92,19 @@ void runServer()
 
         if(!file.is_open())
         {
-            res.set_content("ERROR: index.html not found", "text/plain");
+            std::ostringstream error;
+            error << "ERROR: index.html not found\n";
+            error << "exeDir: " << exeDir.string() << "\n";
+            error << "checked:\n";
+
+            for(const auto& p : paths)
+            {
+                error << "- " << p.string()
+                      << " exists=" << (std::filesystem::exists(p) ? "yes" : "no")
+                      << "\n";
+            }
+
+            res.set_content(error.str(), "text/plain");
             return;
         }
 

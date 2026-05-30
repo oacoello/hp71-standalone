@@ -3,16 +3,21 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT_DIR/linux_app"
-UNPACKED_DIR="$APP_DIR/release-deb/linux-unpacked"
+UNPACKED_DIR="$APP_DIR/dist/linux-unpacked"
 VERSION="1.0.1"
 PACKAGE_NAME="santa-barbara-fdc"
 WORK_DIR="/tmp/${PACKAGE_NAME}-deb"
 PKG_DIR="$WORK_DIR/package"
 OUT_DEB="$WORK_DIR/${PACKAGE_NAME}_${VERSION}_amd64.deb"
-FINAL_DEB="$APP_DIR/release-deb/${PACKAGE_NAME}_${VERSION}_amd64.deb"
+FINAL_DEB="$APP_DIR/dist/${PACKAGE_NAME}_${VERSION}_amd64.deb"
 
 if [[ ! -d "$UNPACKED_DIR" ]]; then
-    echo "Missing $UNPACKED_DIR. Run electron-builder first." >&2
+    echo "Missing $UNPACKED_DIR. Run: cd linux_app && npm run pack:linux" >&2
+    exit 1
+fi
+
+if [[ ! -x "$UNPACKED_DIR/resources/backend/hp71_emulator" ]]; then
+    echo "Missing executable backend: $UNPACKED_DIR/resources/backend/hp71_emulator" >&2
     exit 1
 fi
 
@@ -32,7 +37,7 @@ find "$PKG_DIR" -type f -exec chmod 644 {} +
 chmod 755 "$PKG_DIR/opt/Santa Barbara FDC/santa-barbara-fdc"
 chmod 755 "$PKG_DIR/opt/Santa Barbara FDC/chrome_crashpad_handler"
 chmod 755 "$PKG_DIR/opt/Santa Barbara FDC/resources/backend/hp71_emulator"
-chmod 4755 "$PKG_DIR/opt/Santa Barbara FDC/chrome-sandbox"
+chmod 4755 "$PKG_DIR/opt/Santa Barbara FDC/chrome-sandbox" 2>/dev/null || true
 
 ln -s "/opt/Santa Barbara FDC/santa-barbara-fdc" "$PKG_DIR/usr/bin/${PACKAGE_NAME}"
 
@@ -65,8 +70,13 @@ Description: Sistema Santa Barbara FDC HP-71B
  Aplicacion de escritorio para ejecutar el sistema Santa Barbara FDC HP-71B.
 CONTROL
 
-fakeroot dpkg-deb --build --root-owner-group "$PKG_DIR" "$OUT_DEB"
 mkdir -p "$(dirname "$FINAL_DEB")"
-cp -f "$OUT_DEB" "$FINAL_DEB"
 
+if command -v fakeroot >/dev/null 2>&1; then
+    fakeroot dpkg-deb --build --root-owner-group "$PKG_DIR" "$OUT_DEB"
+else
+    dpkg-deb --build --root-owner-group "$PKG_DIR" "$OUT_DEB"
+fi
+
+cp -f "$OUT_DEB" "$FINAL_DEB"
 echo "$FINAL_DEB"

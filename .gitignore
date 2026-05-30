@@ -40,12 +40,15 @@ yarn-error.log*
 *.tar.gz
 *.7z
 electron_payload/backend/hp71_emulator
+!electron_payload/backend/hp71_emulator
+!electron_payload/backend/hp71_emulator.exe
 santa-barbara-deb/opt/santa-barbara/hp71_emulator
 
 # Local backups
 *_BACKUP*/
 *.bak*
 web_ui_old/
+REPORTES DE MISION/
 
 # Local runtime/auth data
 auth/users.json
