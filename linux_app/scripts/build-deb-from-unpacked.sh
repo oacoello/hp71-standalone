@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="santa-barbara-fdc"
-PRODUCT_NAME="Santa Barbara FDC"
+APP_NAME="calculadora-santa-barbara"
+PRODUCT_NAME="Calculadora Santa Barbara"
 VERSION="1.0.1"
 ARCH="amd64"
 
@@ -35,8 +35,8 @@ Priority: optional
 Architecture: $ARCH
 Maintainer: Dolfo <dolfo@example.com>
 Depends: libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0
-Description: Sistema Santa Barbara FDC HP-71B
- Sistema Santa Barbara FDC HP-71B
+Description: Calculadora Santa Barbara
+ Calculadora Santa Barbara HP-71B
 EOF
 chmod 0644 "$STAGE/DEBIAN/control"
 

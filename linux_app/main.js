@@ -9,7 +9,10 @@ let splash = null;
 let mainWindow = null;
 let uiServer = null;
 
+const APP_NAME = "Calculadora Santa Barbara";
 const UI_PORT = 18080;
+
+app.setName(APP_NAME);
 
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch("disable-gpu");
@@ -21,6 +24,10 @@ function getAppRoot() {
     }
 
     return path.join(__dirname, "..");
+}
+
+function getWindowIcon() {
+    return path.join(__dirname, "icon_hp71b.png");
 }
 
 function startBackend() {
@@ -135,6 +142,7 @@ function createSplash() {
         alwaysOnTop: true,
         center: true,
         resizable: false,
+        icon: getWindowIcon(),
         backgroundColor: "#000000",
         webPreferences: {
             contextIsolation: true,
@@ -151,6 +159,7 @@ function createMainWindow() {
         height: 800,
         show: false,
         center: true,
+        icon: getWindowIcon(),
         backgroundColor: "#000000",
         webPreferences: {
             contextIsolation: true,

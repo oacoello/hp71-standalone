@@ -1,12 +1,11 @@
 {
-  "name": "santa-barbara-fdc",
+  "name": "calculadora-santa-barbara",
   "version": "1.0.1",
-  "description": "Sistema Santa Barbara FDC HP-71B",
+  "description": "Calculadora Santa Barbara - Versión 1.0 Junio 2026",
   "main": "main.js",
   "homepage": "https://local.santa-barbara-fdc",
   "author": {
-    "name": "Dolfo",
-    "email": "dolfo@example.com"
+    "name": "Desarrollo Mecatrónica UDH - V.I.M.M"
   },
   "license": "UNLICENSED",
   "scripts": {
@@ -17,24 +16,39 @@
   },
   "build": {
     "appId": "hn.fah.santabarbara.fdc",
-    "productName": "Santa Barbara FDC",
+    "productName": "Calculadora Santa Barbara",
+    "executableName": "calculadora-santa-barbara",
+    "copyright": "Copyright © 2026 Universidad de Defensa de Honduras UDH",
+    "icon": "icon_hp71b.png",
     "linux": {
       "target": [
         "deb"
       ],
       "category": "Utility",
-      "maintainer": "Dolfo <dolfo@example.com>"
+      "maintainer": "Desarrollo Mecatrónica UDH - V.I.M.M",
+      "icon": "icon_hp71b.png"
     },
     "win": {
       "target": [
         "nsis"
+      ],
+      "icon": "icon_hp71b.ico",
+      "publisherName": [
+        "Desarrollo Mecatrónica UDH - V.I.M.M"
       ]
+    },
+    "nsis": {
+      "installerIcon": "icon_hp71b.ico",
+      "uninstallerIcon": "icon_hp71b.ico",
+      "installerHeaderIcon": "icon_hp71b.ico"
     },
     "files": [
       "main.js",
       "splash.html",
       "logo.png",
-      "splash.gif"
+      "splash.gif",
+      "icon_hp71b.png",
+      "icon_hp71b.ico"
     ],
     "extraResources": [
       {
