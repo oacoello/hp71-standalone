@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 <meta charset="utf-8">
 <title>SANTA BARBARA</title>
@@ -13,7 +14,6 @@ justify-content:center;
 align-items:center;
 height:100vh;
 margin:0;
-overflow:hidden;
 }
 
 .calculator{
@@ -26,50 +26,19 @@ box-shadow:0 0 40px rgba(0,0,0,.7);
 
 .lcd{
 background:#cbbf97;
+padding:12px;
 border-radius:6px;
 margin-bottom:20px;
-height:280px;
-width:100%;
-display:flex;
-padding:8px;
-box-sizing:border-box;
 }
 
 #lcdtext{
 background:#1f1f1f;
 color:#baff7c;
 font-family:monospace;
-font-size:20px;
-line-height:1.35;
-letter-spacing:1px;
-width:100%;
-height:100%;
-overflow:hidden;
-white-space:pre;
-padding:12px;
-box-sizing:border-box;
-border:4px solid #bfb68c;
-border-radius:4px;
-}
-
-.lcdbar{
-width:44px;
-height:100%;
-margin-left:8px;
-display:flex;
-flex-direction:column;
-gap:8px;
-}
-
-.lcdbar button{
-width:44px;
-height:50%;
-background:#1f1f1f;
-color:#baff7c;
-border:3px solid #bfb68c;
-font-size:24px;
-border-radius:4px;
-cursor:pointer;
+font-size:26px;
+padding:10px;
+letter-spacing:3px;
+white-space:pre-line;
 }
 
 .keyboard{
@@ -100,28 +69,16 @@ font-size:15px;
 cursor:pointer;
 }
 
-button.light{
-background:#d7d7d7;
-color:black;
-}
-
-button.yellow{
-background:#e6c200;
-color:black;
-}
-
-button.blue{
-background:#4da6c8;
-}
+button.light{ background:#d7d7d7; color:black; }
+button.yellow{ background:#e6c200; color:black; }
+button.blue{ background:#4da6c8; }
 
 .endline{
 height:92px;
 grid-row:span 2;
 }
 
-button:active{
-transform:scale(.95);
-}
+button:active{ transform:scale(.95); }
 </style>
 </head>
 
@@ -130,48 +87,25 @@ transform:scale(.95);
 <div class="calculator">
 
 <div class="lcd">
-    <div id="lcdtext">SANTA BARBARA</div>
-
-    <div class="lcdbar">
-        <button onclick="prevPiece()">▲</button>
-        <button onclick="nextPiece()">▼</button>
-    </div>
+<div id="lcdtext">SANTA BARBARA</div>
 </div>
 
 <div class="keyboard">
 
 <div class="left">
-<button data="Q">Q</button>
-<button data="W">W</button>
-<button data="E">E</button>
-<button data="R">R</button>
-<button data="T">T</button>
-<button data="Y">Y</button>
-<button data="U">U</button>
-<button data="I">I</button>
-<button data="O">O</button>
+<button data="Q">Q</button><button data="W">W</button><button data="E">E</button>
+<button data="R">R</button><button data="T">T</button><button data="Y">Y</button>
+<button data="U">U</button><button data="I">I</button><button data="O">O</button>
 <button data="P">P</button>
 
-<button data="A">A</button>
-<button data="S">S</button>
-<button data="D">D</button>
-<button data="F">F</button>
-<button data="G">G</button>
-<button data="H">H</button>
-<button data="J">J</button>
-<button data="K">K</button>
-<button data="L">L</button>
+<button data="A">A</button><button data="S">S</button><button data="D">D</button>
+<button data="F">F</button><button data="G">G</button><button data="H">H</button>
+<button data="J">J</button><button data="K">K</button><button data="L">L</button>
 <button data="=">=</button>
 
-<button data="Z">Z</button>
-<button data="X">X</button>
-<button data="C">C</button>
-<button data="V">V</button>
-<button data="B">B</button>
-<button data="N">N</button>
-<button data="M">M</button>
-<button data="(">(</button>
-<button data=")">)</button>
+<button data="Z">Z</button><button data="X">X</button><button data="C">C</button>
+<button data="V">V</button><button data="B">B</button><button data="N">N</button>
+<button data="M">M</button><button data="(">(</button><button data=")">)</button>
 
 <button class="endline" data="ENTER">ENDLINE</button>
 
@@ -212,232 +146,380 @@ transform:scale(.95);
 </div>
 
 <script>
-let buffer = "";
-let screenText = "SANTA BARBARA";
 
-let pieces = [];
-let pieceIndex = 0;
-let pieceMode = false;
+// ================== 🔥 NUEVA LÓGICA ==================
+let ud_mode = false
+let pieces = []
+let sendingCommand = false
+
+// La pieza base real viene del flujo COB_BASE del backend.
+// JavaScript usa índice 0, por eso PIECE 1 = index 0, PIECE 2 = index 1, etc.
+let basePieceNumber = 1
+let basePieceIndex = 0
+let currentPiece = basePieceIndex
+let waitingBasePieceValue = false
+
+function clampPieceIndex(index){
+    if(pieces.length === 0) return Math.max(0, index)
+    if(index < 0) return 0
+    if(index >= pieces.length) return pieces.length - 1
+    return index
+}
+
+function setBasePiece(num){
+    let n = parseInt(num, 10)
+    if(isNaN(n) || n < 1) return
+
+    basePieceNumber = n
+    basePieceIndex = n - 1
+    currentPiece = clampPieceIndex(basePieceIndex)
+}
+
+function updateBasePieceFromText(text){
+    let raw = String(text || "")
+
+    // Detecta estos formatos:
+    // BASE PIECE 3
+    // BASE PIECE: 3
+    // BASE PIECE (P *): 3
+    let match = raw.match(/BASE\s+PIECE(?:\s*\([^)]*\))?\s*:?\s*(\d+)/i)
+    if(match){
+        setBasePiece(match[1])
+        waitingBasePieceValue = true
+        return
+    }
+
+    // Si ya salimos del prompt de BASE PIECE, dejamos de esperar ese valor.
+    if(!raw.toUpperCase().includes("BASE PIECE")){
+        waitingBasePieceValue = false
+    }
+}
+
+function captureBasePieceBeforeSend(cmd){
+    let clean = String(cmd || "").trim()
+
+    // Si la pantalla estaba pidiendo BASE PIECE y el usuario escribe un número,
+    // esa es la pieza base real que se debe mostrar después del tiro.
+    if(waitingBasePieceValue && /^\d+$/.test(clean)){
+        setBasePiece(clean)
+        waitingBasePieceValue = false
+    }
+}
 
 function parsePieces(text){
 
-```
-let lines = text.split(/\r?\n/);
-let result = [];
-let current = [];
+pieces = []
+let parts = text.split("----- PIECE")
 
-for(let line of lines){
+if(parts.length <= 1) return false
 
-    let clean = line.trim();
+for(let i=1;i<parts.length;i++){
+    let p = "----- PIECE" + parts[i]
+    p = p.trim()
 
-    // 🔥 detectar PIECE aunque venga sucio
-    if(clean.includes("PIECE") && clean.includes("-----")){
+    let match = p.match(/-----\s+PIECE\s+(\d+)\s+-----/i)
+    let pieceNumber = match ? parseInt(match[1], 10) : i
+    let isBasePiece = (pieceNumber === basePieceNumber)
 
-        if(current.length > 0){
-            result.push(current.join("\n"));
-        }
-
-        current = [clean];
-        continue;
+    // quitar COMP CORR de no-base
+    if(!isBasePiece){
+        p = p.replace(/COMP CORR[\s\S]*/,"").trim()
+        p += "\n\nTESON DR EVIL"
     }
 
-    if(current.length > 0){
-
-        // ignorar basura final
-        if(clean.startsWith("COMP CORR") || clean.startsWith("TESON")){
-            continue;
+    // base elegida por el usuario
+    if(isBasePiece){
+        if(!p.includes("COMP CORR")){
+            p += "\n\nCOMP CORR (Y N P *)"
         }
-
-        if(clean !== ""){
-            current.push(clean);
+        if(!p.includes("TESON DR EVIL")){
+            p += "\nTESON DR EVIL"
         }
     }
+
+    pieces.push(p)
 }
 
-if(current.length > 0){
-    result.push(current.join("\n"));
+currentPiece = clampPieceIndex(basePieceIndex)
+return true
 }
 
-return result;
-```
-
+function getBasePiece(){
+    if(pieces.length === 0) return null
+    return pieces[clampPieceIndex(basePieceIndex)]
 }
 
+function showPiece(){
+if(pieces.length === 0) return prompt
+return pieces[clampPieceIndex(currentPiece)]
+}
+// ================== FIN NUEVA LÓGICA ==================
 
-function renderLCD(){
-    let lcd = document.getElementById("lcdtext");
 
-    if(pieceMode && pieces.length > 0){
-        lcd.innerText =
-            pieces[pieceIndex] +
-            "\n\nPIECE " + (pieceIndex + 1) + "/" + pieces.length +
-            "\n▲ PREV   ▼ NEXT";
-        return;
-    }
+let buffer=""
+let prompt="SANTA BARBARA"
 
-    let text = screenText;
+function updateScreen(){
 
-    if(buffer.length > 0){
-        text += "\n> " + buffer;
-    }
+let text = showPiece()
 
-    lcd.innerText = text;
+if(buffer.length>0){
+    text += " " + buffer
 }
 
-function nextPiece(){
-    if(!pieceMode || pieces.length === 0) return;
-
-    if(pieceIndex < pieces.length - 1){
-        pieceIndex++;
-    }
-
-    renderLCD();
-}
-
-function prevPiece(){
-    if(!pieceMode || pieces.length === 0) return;
-
-    if(pieceIndex > 0){
-        pieceIndex--;
-    }
-
-    renderLCD();
+document.getElementById("lcdtext").innerText = text
 }
 
 function send(cmd){
-    fetch("/input",{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/x-www-form-urlencoded"
-        },
-        body:"cmd="+encodeURIComponent(cmd)
-    })
-    .then(r=>r.text())
-    .then(t=>{
 
-        buffer = "";
+if(sendingCommand) return
+sendingCommand = true
 
-        let foundPieces = parsePieces(t);
+captureBasePieceBeforeSend(cmd)
 
-        if(foundPieces.length > 0){
-            pieces = foundPieces;
-            pieceIndex = 0;
-            pieceMode = true;
-            renderLCD();
-            return;
-        }
+fetch("/input",{
+method:"POST",
+headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+body:"cmd="+encodeURIComponent(cmd)
+})
+.then(r=>r.text())
+.then(t=>{
 
-        pieceMode = false;
-        screenText = t;
-        renderLCD();
-    });
+    updateBasePieceFromText(t)
+
+    if(t.trim() === "INITIALIZE"){
+    prompt = "INITIALIZE"
+    buffer = ""
+    pieces = []
+    updateScreen()
+
+    setTimeout(()=>{
+        fetch("/input",{
+            method:"POST",
+            headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+            body:"cmd="+encodeURIComponent("")
+        })
+        .then(r=>r.text())
+        .then(next=>{
+            updateBasePieceFromText(next)
+            prompt = next
+            buffer = ""
+            pieces = []
+            updateScreen()
+        })
+        .finally(()=>{
+            sendingCommand = false
+        })
+    }, 2000)
+
+    return
+}
+
+// Procesar piezas
+if(parsePieces(t)){
+
+    let raw = t.toUpperCase()
+
+    // SOLO activar cuando el sistema realmente solicita entrada
+    if(raw.trim() === "U/D" || raw.includes("ENTER U/D")){
+        ud_mode = true
+    }
+
+    // SALIR DE MODO U/D SOLO CUANDO REGRESA A COMP CORR
+    if(raw.includes("COMP CORR")){
+        ud_mode = false
+    }
+
+    // SEGURIDAD: SI VUELVE A PDA
+    if(raw.includes("FUZE PDA")){
+        ud_mode = false
+    }
+
+    let basePiece = getBasePiece()
+
+    // LIMPIAR CUALQUIER ARRASTRE DE TIA/HOB EN NUEVO TGT
+    if(raw.includes("FUZE PDA") && basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/FUZE\s+TIA\s+HOB\s+\d+/g, "FUZE PDA")
+    }
+
+    // LIMPIAR SIEMPRE PRIMERO EN LA BASE ELEGIDA
+    basePiece = getBasePiece()
+    if(basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/\n\nU\/D \?/g, "")
+    }
+
+    // APLICAR SOLO SI ESTÁ ACTIVO EN LA BASE ELEGIDA
+    basePiece = getBasePiece()
+    if(ud_mode && basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece + "\n\nU/D ?"
+    }
+
+}else{
+    prompt = t
+}
+
+buffer=""
+updateScreen()
+
+})
+.catch(e=>{
+    prompt = "ERROR"
+    buffer = ""
+    updateScreen()
+})
+.finally(()=>{
+    if(prompt !== "INITIALIZE"){
+        sendingCommand = false
+    }
+})
+
 }
 
 document.querySelectorAll("button").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-        let key = btn.getAttribute("data");
-        if(!key) return;
 
-        if(key === "UP"){
-            prevPiece();
-            return;
-        }
+btn.addEventListener("click",()=>{
 
-        if(key === "DOWN"){
-            nextPiece();
-            return;
-        }
+let key = btn.getAttribute("data")
+if(!key) return
 
-        if(key === "RUN"){
-            pieceMode = false;
-            send("MAIN");
-            return;
-        }
+if(sendingCommand && key !== "UP" && key !== "DOWN"){
+    return
+}
 
-        if(key === "ENTER"){
-            if(buffer.length === 0){
-                send("MAIN");
-                return;
-            }
+// 🔥 NAVEGACIÓN PIEZAS
+if(key==="UP"){
+    if(pieces.length>0){
+        currentPiece--
+        if(currentPiece<0) currentPiece = pieces.length-1
+        updateScreen()
+    }
+    return
+}
 
-            send(buffer);
-            return;
-        }
+if(key==="DOWN"){
+    if(pieces.length>0){
+        currentPiece++
+        if(currentPiece>=pieces.length) currentPiece = 0
+        updateScreen()
+    }
+    return
+}
 
-        if(key === "BACK"){
-            buffer = buffer.slice(0,-1);
-            renderLCD();
-            return;
-        }
+// 🔥 FORZAR BASE REAL EN P, Y Y N
+if(key==="P" || key==="Y" || key==="N"){
+    currentPiece = clampPieceIndex(basePieceIndex)
+}
 
-        pieceMode = false;
-        buffer += key;
-        renderLCD();
-    });
-});
+// RUN
+if(key==="RUN"){
+buffer = "RUNBUCS"
+updateScreen()
+return
+}
 
+// ENTER / ENDLINE
+if(key==="ENTER"){
+    let value = buffer.trim()
+    buffer = ""
+
+    if(value.length === 0){
+        send("")
+    }else{
+        send(value)
+    }
+
+    return
+}
+
+if(key==="BACK"){
+buffer = buffer.slice(0,-1)
+updateScreen()
+return
+}
+
+buffer += key
+updateScreen()
+
+})
+
+})
+
+updateScreen()
+
+</script>
+
+<script>
+
+// teclado físico igual
 document.addEventListener("keydown", function(event){
-    let key = event.key;
 
-    if(key === "ArrowUp"){
-        prevPiece();
-        event.preventDefault();
-        return;
+let key = event.key
+
+if(key==="ArrowUp"){
+    if(pieces.length>0){
+        currentPiece--
+        if(currentPiece<0) currentPiece = pieces.length-1
+        updateScreen()
+    }
+    return
+}
+
+if(key==="ArrowDown"){
+    if(pieces.length>0){
+        currentPiece++
+        if(currentPiece>=pieces.length) currentPiece = 0
+        updateScreen()
+    }
+    return
+}
+
+if(key === "Enter"){
+    let value = buffer.trim()
+    buffer = ""
+
+    if(value.length === 0){
+        send("")
+    }else{
+        send(value)
     }
 
-    if(key === "ArrowDown"){
-        nextPiece();
-        event.preventDefault();
-        return;
-    }
+    updateScreen()
+    return
+}
 
-    if(key === "Enter"){
-        if(buffer.length === 0){
-            send("MAIN");
-            return;
-        }
+if(key === "Backspace"){
+    buffer = buffer.slice(0,-1)
+    updateScreen()
+    event.preventDefault()
+    return
+}
 
-        send(buffer);
-        return;
-    }
+if(!isNaN(key)){
+    buffer += key
+    updateScreen()
+    return
+}
 
-    if(key === "Backspace"){
-        buffer = buffer.slice(0,-1);
-        renderLCD();
-        event.preventDefault();
-        return;
-    }
+if(key.length === 1 && /[a-zA-Z]/.test(key)){
+    buffer += key.toUpperCase()
+    updateScreen()
+    return
+}
 
-    if(!isNaN(key)){
-        pieceMode = false;
-        buffer += key;
-        renderLCD();
-        return;
-    }
+if(key === " "){
+    buffer += " "
+    updateScreen()
+    return
+}
 
-    if(key.length === 1 && /[a-zA-Z]/.test(key)){
-        pieceMode = false;
-        buffer += key.toUpperCase();
-        renderLCD();
-        return;
-    }
+if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
+    buffer += key
+    updateScreen()
+    return
+}
 
-    if(key === " "){
-        pieceMode = false;
-        buffer += " ";
-        renderLCD();
-        return;
-    }
+})
 
-    if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
-        pieceMode = false;
-        buffer += key;
-        renderLCD();
-        return;
-    }
-});
-
-renderLCD();
 </script>
 
 </body>

@@ -1422,10 +1422,13 @@ std::string BasicEngine::execute(const std::string& input)
 
         double def = 0.0;
 
+        // CORRECCION DE SIGNO DEF:
+        // La HP fisica usa REF_DEF - (AZ - AZ_LAY).
+        // Esto evita que cuando AZ sea mayor que AZ_LAY la deflexion suba incorrectamente.
         if(use_fm1_reverse)
             def = def_base - (mils - az_lay);
         else
-            def = def_base + (mils - az_lay);
+            def = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse)
             def += reg_def + df_corr;
@@ -1454,8 +1457,7 @@ std::string BasicEngine::execute(const std::string& input)
             std::cout << "AZ=" << mils << "\n";
             std::cout << "AZ_LAY=" << az_lay << "\n";
             std::cout << "REF_DEF=" << def_base << "\n";
-            std::cout << "DEF_BEFORE_CORR=" << (def_base + (mils - az_lay)) << "\n";
-            std::cout << "REG_DEF=" << reg_def << "\n";
+            std::cout << "DEF_BEFORE_CORR=" << (def_base - (mils - az_lay)) << "\n";            std::cout << "REG_DEF=" << reg_def << "\n";
             std::cout << "DF_CORR=" << df_corr << "\n";
             std::cout << "DRIFT=" << drift << "\n";
             std::cout << "TOF=" << tof << "\n";
@@ -1590,10 +1592,12 @@ std::string BasicEngine::execute(const std::string& input)
 
         double def_ref = 0.0;
 
+        // Misma convencion de DEF que la HP fisica:
+        // REF_DEF - (AZ - AZ_LAY)
         if(use_fm1_reverse_ref)
             def_ref = def_base - (mils - az_lay);
         else
-            def_ref = def_base + (mils - az_lay);
+            def_ref = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse_ref)
             def_ref += reg_def + df_corr;
@@ -4215,10 +4219,12 @@ if(current_menu=="SHIFT")
                 drift = 0.00038 * dist;
             }
 
-            // 🔥 DEF REAL LIMPIA
-            double def_real = def_base + (mils - az_lay);
+            // DEF REAL LIMPIA
+            // Convencion corregida:
+            // REF_DEF - (AZ - AZ_LAY)
+            double def_real = def_base - (mils - az_lay);
             def_real += df_corr;
-
+            
             double drift_accum_real = drift * (tof / 25.0);
             double jump_h_real = 0.3;
 
@@ -4269,7 +4275,9 @@ if(current_menu=="SHIFT")
                     drift_tmp = 0.00038 * dist;
                 }
 
-                double def_temp = def_base + (mils - az_lay);
+                // DEF temporal con la misma convencion corregida:
+                // REF_DEF - (AZ - AZ_LAY)
+                double def_temp = def_base - (mils - az_lay);
                 def_temp += reg_def + df_corr;
 
                 double drift_accum = drift_tmp * (tof_tmp / 25.0);
@@ -4287,10 +4295,7 @@ if(current_menu=="SHIFT")
                 if(def_temp < min_def) min_def = def_temp;
             }
 
-                double error = (max_def - last_def_solution);
-
-                // 🔥 GANANCIA DOCTRINAL (AJUSTE FINAL)
-                reg_def += error * 2.5;
+                reg_def = 00;
             }
             else
             {

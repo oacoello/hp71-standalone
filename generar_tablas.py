@@ -1,9 +1,40 @@
 import os
 import csv
 
-OUTPUT_PATH = r"C:\Users\dolfo\Documents\hp71_emulator\tables\tables.csv"
+OUTPUT_PATH = r"C:\Users\dolfo\OneDrive\Documentos\GitHub\hp71-standalone\tables\tables.csv"
 
 os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+
+
+# ============================================================
+# CALIBRACION PROVISIONAL GENERAL 105MM
+# ============================================================
+#
+# Motivo:
+# - Comparativa con HP71B fisica disponible:
+#   ART 105 / HEA / CHG 4 / DIST 4399
+#   Virtual anterior: QE aprox 208.2 / TOF 16.0751
+#   HP fisica:        QE aprox 331.9 / TOF 18.2
+#
+# Decision:
+# - NO se fuerza una distancia.
+# - NO se fuerza un proyectil especifico.
+# - NO se toca 155mm.
+# - Se eleva la curva base general de TODO 105mm de forma provisional.
+#
+# Cuando existan mas comparativas reales, estos parametros se afinan.
+# ============================================================
+
+BASE_105_SCALE = 66.0
+CHG_105_SCALE = 10.5
+CURVE_105_SCALE = 0.42
+TOF_105_SCALE = 251.0
+
+# Valores originales previos:
+# BASE_105_SCALE = 38.0
+# CHG_105_SCALE = 10.5
+# CURVE_105_SCALE = 0.42
+# TOF_105_SCALE = 285.0
 
 
 def write_row(writer, art, proj, chg, dist, qe, tof, drift):
@@ -177,19 +208,20 @@ def add_105_projectile_family(
     """
     Genera una familia completa 105mm para cargas 4, 5, 6 y 7.
 
-    Esta funcion no fuerza resultados por ejercicio.
-    Solo aplica parametros generales a toda la familia del proyectil 105mm.
-
-    No toca 155mm.
+    CALIBRACION PROVISIONAL:
+    - Usa parametros generales BASE_105_SCALE y TOF_105_SCALE.
+    - Aplica a todo 105mm.
+    - No fuerza distancia ni proyectil.
+    - No toca 155mm.
     """
 
     add_table_block(
         writer, 105, proj, 4,
         1000, 6000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=drift_scale,
         power=power,
         qe_bias=qe_bias,
@@ -200,10 +232,10 @@ def add_105_projectile_family(
     add_table_block(
         writer, 105, proj, 5,
         1500, 7500, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=drift_scale,
         power=power,
         qe_bias=qe_bias,
@@ -214,10 +246,10 @@ def add_105_projectile_family(
     add_table_block(
         writer, 105, proj, 6,
         2000, 9000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=drift_scale,
         power=power,
         qe_bias=qe_bias,
@@ -228,10 +260,10 @@ def add_105_projectile_family(
     add_table_block(
         writer, 105, proj, 7,
         3000, 10000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=drift_scale,
         power=power,
         qe_bias=qe_bias,
@@ -242,22 +274,19 @@ def add_105_projectile_family(
 
 def add_105_hea_family(writer):
     """
-    Genera HEA 105mm como familia completa.
+    Genera HEA 105mm.
 
-    Cambio aplicado:
-    - Antes HEA estaba castigado con power=1.06 y qe_bias=-2.0.
-    - Eso bajaba todo el QE de HEA en 105mm.
-    - Ahora HEA queda alineado al modelo base 105, sin forzar una carga,
-      sin forzar una distancia y sin tocar 155mm.
+    Usa la calibracion provisional general 105mm.
+    No se fuerza una distancia especifica.
     """
 
     add_table_block(
         writer, 105, "HEA", 4,
         1000, 7000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=0.96,
         power=1.00,
         qe_bias=0.0,
@@ -267,10 +296,10 @@ def add_105_hea_family(writer):
     add_table_block(
         writer, 105, "HEA", 5,
         1500, 8500, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=0.96,
         power=1.00,
         qe_bias=0.0,
@@ -280,10 +309,10 @@ def add_105_hea_family(writer):
     add_table_block(
         writer, 105, "HEA", 6,
         2000, 10000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=0.96,
         power=1.00,
         qe_bias=0.0,
@@ -293,10 +322,10 @@ def add_105_hea_family(writer):
     add_table_block(
         writer, 105, "HEA", 7,
         3000, 11500, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=0.96,
         power=1.00,
         qe_bias=0.0,
@@ -306,17 +335,19 @@ def add_105_hea_family(writer):
 
 def add_105_ila_family(writer):
     """
-    Genera ILA 105mm como familia propia.
-    Se mantiene igual que antes para no dañar lo existente.
+    Genera ILA 105mm.
+
+    Se mantiene como familia propia, pero usando la curva base 105mm
+    provisional para que todo 105 quede calibrado bajo el mismo modelo.
     """
 
     add_table_block(
         writer, 105, "ILA", 4,
         1000, 5000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=1.04,
         power=0.96,
         qe_bias=3.0,
@@ -326,10 +357,10 @@ def add_105_ila_family(writer):
     add_table_block(
         writer, 105, "ILA", 5,
         1500, 6500, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=1.04,
         power=0.96,
         qe_bias=3.0,
@@ -339,10 +370,10 @@ def add_105_ila_family(writer):
     add_table_block(
         writer, 105, "ILA", 6,
         2000, 8000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=1.04,
         power=0.96,
         qe_bias=3.0,
@@ -352,10 +383,10 @@ def add_105_ila_family(writer):
     add_table_block(
         writer, 105, "ILA", 7,
         3000, 9000, 100,
-        base_scale=38.0,
-        chg_scale=10.5,
-        curve_scale=0.42,
-        tof_scale=285.0,
+        base_scale=BASE_105_SCALE,
+        chg_scale=CHG_105_SCALE,
+        curve_scale=CURVE_105_SCALE,
+        tof_scale=TOF_105_SCALE,
         drift_scale=1.04,
         power=0.96,
         qe_bias=3.0,
@@ -367,17 +398,19 @@ def add_105_family(writer):
     """
     Familia completa 105mm.
 
-    Se mantienen todas las familias existentes:
+    Familias incluidas:
     - HE
     - M1
     - M67
     - HEA
     - ILA
 
-    No se elimina ningun PROJ.
-    No se fuerza ninguna carga.
-    No se fuerza ninguna distancia.
-    No se toca 155mm.
+    Calibracion provisional:
+    - Se aplica a todo 105mm.
+    - No se elimina ningun proyectil.
+    - No se fuerza ninguna carga.
+    - No se fuerza ninguna distancia.
+    - No se toca 155mm.
     """
 
     for proj in ["HE", "M1", "M67"]:
