@@ -2087,8 +2087,13 @@ if(!fm4.empty())
         {
             current_menu = "OBS";
             input_stage = 0;
-            obs_current_index = 1;
-            return "QTY OBS (P *): " + std::to_string(obs_expected_qty);
+
+            if(obs_current_index <= 0)
+                obs_current_index = 1;
+
+            BasicEngine::obs_id = obs_current_index;
+
+            return "PO #" + std::to_string(obs_current_index) + " (P *): " + std::to_string(obs_current_index);
         }
 
         if(cmd=="5")
@@ -2593,7 +2598,7 @@ if(current_menu=="TARGET")
     }
 
 //////////////////////////////////////////////////
-// OBS
+// OBS / PO
 //////////////////////////////////////////////////
 
 if(current_menu=="OBS")
@@ -2602,7 +2607,6 @@ if(current_menu=="OBS")
     {
         current_menu = "MAIN";
         input_stage = 0;
-        obs_current_index = 1;
         return "MAIN (? 1 3 4 5 7 X *)";
     }
 
@@ -2615,51 +2619,47 @@ if(current_menu=="OBS")
         switch(input_stage)
         {
             case 0:
-                return "QTY OBS (P *): " + std::to_string(obs_expected_qty);
+                return "PO #" + std::to_string(obs_current_index) + " (P *): " + std::to_string(obs_current_index);
 
             case 1:
-                return "OBS #" + std::to_string(obs_current_index) + " (P *): " + std::to_string((int)BasicEngine::obs_id);
+                return "PO #" + std::to_string((int)BasicEngine::obs_id) + " E (P *): " + std::to_string((int)obs_e);
 
             case 2:
-                return "OBS E (P *): " + std::to_string((int)obs_e);
+                return "PO #" + std::to_string((int)BasicEngine::obs_id) + " N (P *): " + std::to_string((int)obs_n);
 
             case 3:
-                return "OBS N (P *): " + std::to_string((int)obs_n);
-
-            case 4:
-                return "OBS ALT (P *): " + std::to_string((int)obs_alt);
-
-            case 5:
-                return "OBS GZ (P *): " + std::to_string((int)BasicEngine::obs_gz);
+                return "PO #" + std::to_string((int)BasicEngine::obs_id) + " ALT (P *): " + std::to_string((int)obs_alt);
         }
     }
 
     std::string v = normStr(cmd);
 
-    // PASO 0: CANTIDAD DE OBSERVADORES
-    if(input_stage==0)
+    // ============================================================
+    // PASO 0: NUMERO DE PO
+    // ============================================================
+    if(input_stage == 0)
     {
+        int selected_po = obs_current_index;
+
         if(!v.empty())
-            obs_expected_qty = std::stoi(v);
+        {
+            try
+            {
+                selected_po = std::stoi(v);
+            }
+            catch(...)
+            {
+                return "PO #" + std::to_string(obs_current_index) + " (P *): " + std::to_string(obs_current_index);
+            }
+        }
 
-        if(obs_expected_qty <= 0)
-            obs_expected_qty = 1;
+        if(selected_po <= 0)
+            selected_po = obs_current_index;
 
-        obs_current_index = 1;
-        input_stage++;
+        BasicEngine::obs_id = selected_po;
 
-        return "OBS #" + std::to_string(obs_current_index) + " (P *): " + std::to_string((int)BasicEngine::obs_id);
-    }
-
-    // PASO 1: NUMERO DE OBSERVADOR
-    if(input_stage==1)
-    {
-        if(!v.empty())
-            BasicEngine::obs_id = std::stoi(v);
-
-        if(BasicEngine::obs_id <= 0)
-            BasicEngine::obs_id = obs_current_index;
-
+        // Si el PO ya existe, cargar datos anteriores.
+        // Si no existe, iniciar limpio.
         if(observers.find(BasicEngine::obs_id) != observers.end())
         {
             obs_e = observers[BasicEngine::obs_id].e;
@@ -2675,79 +2675,100 @@ if(current_menu=="OBS")
             BasicEngine::obs_gz = 0;
         }
 
-        input_stage++;
-        return "OBS E (P *): " + std::to_string((int)obs_e);
+        input_stage = 1;
+
+        return "PO #" + std::to_string((int)BasicEngine::obs_id) + " E (P *): " + std::to_string((int)obs_e);
     }
 
-    // PASO 2: ESTE
-    if(input_stage==2)
+    // ============================================================
+    // PASO 1: ESTE
+    // ============================================================
+    if(input_stage == 1)
     {
         if(!v.empty())
-            obs_e = std::stod(v);
+        {
+            try
+            {
+                obs_e = std::stod(v);
+            }
+            catch(...)
+            {
+                return "PO #" + std::to_string((int)BasicEngine::obs_id) + " E (P *): " + std::to_string((int)obs_e);
+            }
+        }
 
-        input_stage++;
-        return "OBS N (P *): " + std::to_string((int)obs_n);
+        input_stage = 2;
+
+        return "PO #" + std::to_string((int)BasicEngine::obs_id) + " N (P *): " + std::to_string((int)obs_n);
     }
 
-    // PASO 3: NORTE
-    if(input_stage==3)
+    // ============================================================
+    // PASO 2: NORTE
+    // ============================================================
+    if(input_stage == 2)
     {
         if(!v.empty())
-            obs_n = std::stod(v);
+        {
+            try
+            {
+                obs_n = std::stod(v);
+            }
+            catch(...)
+            {
+                return "PO #" + std::to_string((int)BasicEngine::obs_id) + " N (P *): " + std::to_string((int)obs_n);
+            }
+        }
 
-        input_stage++;
-        return "OBS ALT (P *): " + std::to_string((int)obs_alt);
+        input_stage = 3;
+
+        return "PO #" + std::to_string((int)BasicEngine::obs_id) + " ALT (P *): " + std::to_string((int)obs_alt);
     }
 
-    // PASO 4: ALTURA
-    if(input_stage==4)
+    // ============================================================
+    // PASO 3: ALTURA Y GUARDADO
+    // ============================================================
+    if(input_stage == 3)
     {
         if(!v.empty())
-            obs_alt = std::stod(v);
-
-        input_stage++;
-        return "OBS GZ (P *): " + std::to_string((int)BasicEngine::obs_gz);
-    }
-
-    // PASO 5: GZ Y GUARDADO DEL OBSERVADOR ACTUAL
-    if(input_stage==5)
-    {
-        if(!v.empty())
-            BasicEngine::obs_gz = std::stod(v);
+        {
+            try
+            {
+                obs_alt = std::stod(v);
+            }
+            catch(...)
+            {
+                return "PO #" + std::to_string((int)BasicEngine::obs_id) + " ALT (P *): " + std::to_string((int)obs_alt);
+            }
+        }
 
         ObserverData obs;
         obs.id = BasicEngine::obs_id;
         obs.e = obs_e;
         obs.n = obs_n;
         obs.alt = obs_alt;
+
+        // GZ se mantiene si ya existia; si es nuevo queda 0.
         obs.gz = BasicEngine::obs_gz;
 
-        observers[BasicEngine::obs_id] = obs;
+        observers[obs.id] = obs;
 
-        main_inputs.push_back("OBSERVER " + std::to_string(BasicEngine::obs_id));
-        main_inputs.push_back("E " + std::to_string((int)obs_e));
-        main_inputs.push_back("N " + std::to_string((int)obs_n));
-        main_inputs.push_back("ALT " + std::to_string((int)obs_alt));
-        main_inputs.push_back("GZ " + std::to_string((int)BasicEngine::obs_gz));
+        main_inputs.push_back("PO " + std::to_string(obs.id));
+        main_inputs.push_back("E " + std::to_string((int)obs.e));
+        main_inputs.push_back("N " + std::to_string((int)obs.n));
+        main_inputs.push_back("ALT " + std::to_string((int)obs.alt));
+        main_inputs.push_back("GZ " + std::to_string((int)obs.gz));
 
-        if(obs_current_index < obs_expected_qty)
-        {
-            obs_current_index++;
-            BasicEngine::obs_id = obs_current_index;
-            obs_e = 0;
-            obs_n = 0;
-            obs_alt = 0;
-            BasicEngine::obs_gz = 0;
-            input_stage = 1;
+        // Si el PO guardado es igual o mayor al siguiente esperado,
+        // avanzar automaticamente al proximo PO.
+        if(obs.id >= obs_current_index)
+            obs_current_index = obs.id + 1;
 
-            return "OBS " + std::to_string(obs.id) + " STORED\nOBS #" + std::to_string(obs_current_index) + " (P *): " + std::to_string((int)BasicEngine::obs_id);
-        }
+        BasicEngine::obs_id = obs_current_index;
 
         current_menu = "MAIN";
         input_stage = 0;
-        obs_current_index = 1;
 
-        return "OBSERVERS STORED\nMAIN (? 1 3 4 5 7 X *)";
+        return "PO " + std::to_string(obs.id) + " STORED\nMAIN (? 1 3 4 5 7 X *)";
     }
 }
 
