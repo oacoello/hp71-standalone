@@ -1,3 +1,14 @@
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <conio.h>
+#endif
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -6,10 +17,7 @@
 #include <vector>
 #include <string>
 
-#ifdef _WIN32
-#include <windows.h>
-#include <conio.h>
-#else
+#ifndef _WIN32
 #include <unistd.h>
 #include <limits.h>
 #endif
@@ -54,7 +62,6 @@ void runServer()
     server.Post("/input", [](const httplib::Request& req, httplib::Response& res)
     {
         std::string cmd = req.get_param_value("cmd");
-        std::cout << "[INPUT_HTTP] [" << cmd << "]" << std::endl;
         std::string result = engine.execute(cmd);
         res.set_content(result, "text/plain");
     });
@@ -240,14 +247,6 @@ int main()
     std::cout << "Starting HP-71B Artillery System...\n";
 
     engine.resetData();
-
-#ifndef _WIN32
-    if(!isatty(STDIN_FILENO))
-    {
-        runServer();
-        return 0;
-    }
-#endif
 
     std::thread server_thread(runServer);
     std::thread console_thread(runConsole);

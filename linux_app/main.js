@@ -7,9 +7,6 @@ const http = require("http");
 let backend = null;
 let splash = null;
 let mainWindow = null;
-let uiServer = null;
-
-const UI_PORT = 18080;
 
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch("disable-gpu");
@@ -27,8 +24,6 @@ function startBackend() {
     const root = getAppRoot();
 
     const candidates = [
-        path.join(root, "backend", "hp71_emulator.exe"),
-        path.join(root, "hp71_emulator.exe"),
         path.join(root, "backend", "hp71_emulator"),
         path.join(root, "hp71_emulator"),
         path.join(root, "build-linux", "hp71_server", "hp71_emulator")
@@ -49,9 +44,12 @@ function startBackend() {
 
     const backendDir = path.dirname(backendPath);
 
+    console.log("Backend path:", backendPath);
+    console.log("Backend dir:", backendDir);
+
     backend = spawn(backendPath, [], {
         cwd: backendDir,
-        stdio: "ignore",
+        stdio: "inherit",
         detached: false
     });
 
@@ -59,71 +57,53 @@ function startBackend() {
         console.error("Backend error:", err);
     });
 
-    return backendDir;
+    backend.on("exit", (code, signal) => {
+        console.error("Backend exit:", code, signal);
+    });
 }
 
-function getContentType(filePath) {
-    const ext = path.extname(filePath).toLowerCase();
-
-    if (ext === ".html") return "text/html; charset=utf-8";
-    if (ext === ".js") return "application/javascript; charset=utf-8";
-    if (ext === ".css") return "text/css; charset=utf-8";
-    if (ext === ".csv") return "text/csv; charset=utf-8";
-    if (ext === ".png") return "image/png";
-    if (ext === ".gif") return "image/gif";
-
-    return "application/octet-stream";
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function proxyInput(req, res) {
-    const proxyReq = http.request({
-        hostname: "127.0.0.1",
-        port: 8080,
-        path: "/input",
-        method: "POST",
-        headers: req.headers
-    }, (proxyRes) => {
-        res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
-        proxyRes.pipe(res);
-    });
-
-    proxyReq.on("error", () => {
-        res.writeHead(502, { "Content-Type": "text/plain; charset=utf-8" });
-        res.end("ERROR: backend no disponible");
-    });
-
-    req.pipe(proxyReq);
-}
-
-function startUiServer(backendDir) {
-    uiServer = http.createServer((req, res) => {
-        const requestUrl = new URL(req.url, `http://127.0.0.1:${UI_PORT}`);
-
-        if (requestUrl.pathname === "/input" && req.method === "POST") {
-            proxyInput(req, res);
-            return;
-        }
-
-        const requestedPath = requestUrl.pathname === "/"
-            ? "index.html"
-            : decodeURIComponent(requestUrl.pathname).replace(/^\/+/, "");
-
-        const filePath = path.resolve(backendDir, requestedPath);
-        const backendRoot = path.resolve(backendDir);
-
-        if (!filePath.startsWith(backendRoot) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-            res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-            res.end("Not found");
-            return;
-        }
-
-        res.writeHead(200, { "Content-Type": getContentType(filePath) });
-        fs.createReadStream(filePath).pipe(res);
-    });
+function waitForBackend(timeoutMs = 12000) {
+    const started = Date.now();
 
     return new Promise((resolve, reject) => {
-        uiServer.once("error", reject);
-        uiServer.listen(UI_PORT, "127.0.0.1", resolve);
+        function check() {
+            const req = http.request({
+                hostname: "127.0.0.1",
+                port: 8080,
+                path: "/",
+                method: "GET",
+                timeout: 1000
+            }, (res) => {
+                res.resume();
+                resolve();
+            });
+
+            req.on("error", () => {
+                if (Date.now() - started > timeoutMs) {
+                    reject(new Error("Backend no respondio en 8080"));
+                } else {
+                    setTimeout(check, 300);
+                }
+            });
+
+            req.on("timeout", () => {
+                req.destroy();
+
+                if (Date.now() - started > timeoutMs) {
+                    reject(new Error("Timeout esperando backend 8080"));
+                } else {
+                    setTimeout(check, 300);
+                }
+            });
+
+            req.end();
+        }
+
+        check();
     });
 }
 
@@ -158,36 +138,44 @@ function createMainWindow() {
         }
     });
 
-    mainWindow.setMenu(null);
-    mainWindow.loadURL(`http://127.0.0.1:${UI_PORT}`);
+    mainWindow.loadURL("http://127.0.0.1:8080");
 
     mainWindow.once("ready-to-show", () => {
-        setTimeout(() => {
-            if (splash && !splash.isDestroyed()) {
-                splash.destroy();
-            }
+        if (splash && !splash.isDestroyed()) {
+            splash.destroy();
+        }
 
-            mainWindow.show();
-        }, 3200);
+        mainWindow.show();
+    });
+
+    mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDescription) => {
+        console.error("Main window failed load:", errorCode, errorDescription);
     });
 }
 
 app.whenReady().then(async () => {
-    const backendDir = startBackend();
-    createSplash();
-    await startUiServer(backendDir);
+    try {
+        startBackend();
+        createSplash();
 
-    setTimeout(() => {
+        await Promise.all([
+            waitForBackend(),
+            delay(3200)
+        ]);
+
         createMainWindow();
-    }, 1200);
+    } catch (err) {
+        console.error(err);
+
+        if (splash && !splash.isDestroyed()) {
+            splash.destroy();
+        }
+
+        app.quit();
+    }
 });
 
 app.on("window-all-closed", () => {
-    if (uiServer) {
-        uiServer.close();
-        uiServer = null;
-    }
-
     if (backend) {
         backend.kill();
         backend = null;

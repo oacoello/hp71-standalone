@@ -16,6 +16,11 @@ class BasicEngine
 public:
     std::string execute(const std::string& cmd);
     std::string resetData();
+
+    // 🔥 OBS públicos porque basic_engine.cpp los usa como BasicEngine::obs_id / BasicEngine::obs_gz
+    static int obs_id;
+    static double obs_gz;
+
 private:
 
     //////////////////////////////////////////////////
@@ -38,9 +43,6 @@ private:
     double obs_alt = 0;
     double obs_n = 0;
     double obs_e = 0;
-
-    static int obs_id;
-    static double obs_gz;
 
     //////////////////////////////////////////////////
     // MET / MAP

@@ -150,6 +150,7 @@ button:active{ transform:scale(.95); }
 // ================== 🔥 NUEVA LÓGICA ==================
 let ud_mode = false
 let pieces = []
+let sendingCommand = false
 
 // La pieza base real viene del flujo COB_BASE del backend.
 // JavaScript usa índice 0, por eso PIECE 1 = index 0, PIECE 2 = index 1, etc.
@@ -271,6 +272,9 @@ document.getElementById("lcdtext").innerText = text
 
 function send(cmd){
 
+if(sendingCommand) return
+sendingCommand = true
+
 captureBasePieceBeforeSend(cmd)
 
 fetch("/input",{
@@ -303,12 +307,15 @@ body:"cmd="+encodeURIComponent(cmd)
             pieces = []
             updateScreen()
         })
+        .finally(()=>{
+            sendingCommand = false
+        })
     }, 2000)
 
     return
 }
 
-// 🔥 Procesar piezas
+// Procesar piezas
 if(parsePieces(t)){
 
     let raw = t.toUpperCase()
@@ -318,30 +325,30 @@ if(parsePieces(t)){
         ud_mode = true
     }
 
-    // 🔥 SALIR DE MODO U/D SOLO CUANDO REGRESA A COMP CORR
+    // SALIR DE MODO U/D SOLO CUANDO REGRESA A COMP CORR
     if(raw.includes("COMP CORR")){
         ud_mode = false
     }
 
-    // 🔥 SEGURIDAD: SI VUELVE A PDA (nuevo TGT)
+    // SEGURIDAD: SI VUELVE A PDA
     if(raw.includes("FUZE PDA")){
         ud_mode = false
     }
 
     let basePiece = getBasePiece()
 
-    // 🔥 LIMPIAR CUALQUIER ARRASTRE DE TIA/HOB EN NUEVO TGT
+    // LIMPIAR CUALQUIER ARRASTRE DE TIA/HOB EN NUEVO TGT
     if(raw.includes("FUZE PDA") && basePiece){
         pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/FUZE\s+TIA\s+HOB\s+\d+/g, "FUZE PDA")
     }
 
-    // 🔥 LIMPIAR SIEMPRE PRIMERO EN LA BASE ELEGIDA
+    // LIMPIAR SIEMPRE PRIMERO EN LA BASE ELEGIDA
     basePiece = getBasePiece()
     if(basePiece){
         pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/\n\nU\/D \?/g, "")
     }
 
-    // 🔥 APLICAR SOLO SI ESTÁ ACTIVO EN LA BASE ELEGIDA
+    // APLICAR SOLO SI ESTÁ ACTIVO EN LA BASE ELEGIDA
     basePiece = getBasePiece()
     if(ud_mode && basePiece){
         pieces[clampPieceIndex(basePieceIndex)] = basePiece + "\n\nU/D ?"
@@ -355,6 +362,16 @@ buffer=""
 updateScreen()
 
 })
+.catch(e=>{
+    prompt = "ERROR"
+    buffer = ""
+    updateScreen()
+})
+.finally(()=>{
+    if(prompt !== "INITIALIZE"){
+        sendingCommand = false
+    }
+})
 
 }
 
@@ -364,6 +381,10 @@ btn.addEventListener("click",()=>{
 
 let key = btn.getAttribute("data")
 if(!key) return
+
+if(sendingCommand && key !== "UP" && key !== "DOWN"){
+    return
+}
 
 // 🔥 NAVEGACIÓN PIEZAS
 if(key==="UP"){
@@ -391,18 +412,23 @@ if(key==="P" || key==="Y" || key==="N"){
 
 // RUN
 if(key==="RUN"){
-send("MAIN")
+buffer = "RUNBUCS"
+updateScreen()
 return
 }
 
-// ENTER
+// ENTER / ENDLINE
 if(key==="ENTER"){
-if(buffer.length===0){
-send("MAIN")
-return
-}
-send(buffer)
-return
+    let value = buffer.trim()
+    buffer = ""
+
+    if(value.length === 0){
+        send("")
+    }else{
+        send(value)
+    }
+
+    return
 }
 
 if(key==="BACK"){
@@ -448,11 +474,16 @@ if(key==="ArrowDown"){
 }
 
 if(key === "Enter"){
-    if(buffer.length === 0){
-        send("MAIN")
-        return
+    let value = buffer.trim()
+    buffer = ""
+
+    if(value.length === 0){
+        send("")
+    }else{
+        send(value)
     }
-    send(buffer)
+
+    updateScreen()
     return
 }
 
