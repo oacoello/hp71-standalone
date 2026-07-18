@@ -69,7 +69,7 @@ struct AmmoKey
 {
     std::string artillery;
     std::string proj;
-    int chg;
+    std::string chg;
 
     bool operator<(const AmmoKey& o) const
     {
@@ -123,7 +123,7 @@ static void loadTablesFromCSV(const std::string& filename)
 
         std::getline(ss, token, ','); key.artillery = trim(token);
         std::getline(ss, token, ','); key.proj = trim(token);
-        std::getline(ss, token, ','); key.chg = std::stoi(trim(token));
+        std::getline(ss, token, ','); key.chg = trim(token);
 
         std::getline(ss, token, ','); row.d = std::stod(trim(token));
         std::getline(ss, token, ','); row.qe = std::stod(trim(token));
@@ -947,7 +947,7 @@ std::string drPrefix(const std::string& menu,const std::string& text)
 static bool mission_active = false;
 // 🔥 CAMBIO DE CARGA DOCTRINAL
 static bool manual_chg_enabled = false;
-static int manual_chg_value = 0;
+static std::string manual_chg_value = "";
 static bool chg_allowed = false;
 static bool chg_edit_mode = false;
 static bool chg_wait_value = false;
@@ -1106,7 +1106,7 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
 //////////////////////////////////////////////////
 
 static bool solveAuto(const std::string& proj,double dist,
-                     int& chg,double& qe,double& tof,double& drift)
+                     std::string& chg,double& qe,double& tof,double& drift)
 {
     std::cout << "BUSCANDO → ART=" << artillery_type
           << " PROJ=" << proj
@@ -1135,7 +1135,7 @@ static bool solveAuto(const std::string& proj,double dist,
         double candidate_qe = q;
         double candidate_tof = t;
         double candidate_drift = d;
-        int candidate_chg = key.chg;
+        std::string candidate_chg = key.chg;
 
         // Prioridad doctrinal:
         // 1. La carga más baja que resuelva la distancia
@@ -1153,8 +1153,8 @@ static bool solveAuto(const std::string& proj,double dist,
     return found;
 }
 
-static bool solveByCharge(const std::string& proj,double dist,int requested_chg,
-                         int& chg,double& qe,double& tof,double& drift)
+static bool solveByCharge(const std::string& proj,double dist,const std::string& requested_chg,
+                         std::string& chg,double& qe,double& tof,double& drift)
 {
     for(auto it = firingTables.begin(); it != firingTables.end(); ++it)
     {
@@ -1167,7 +1167,7 @@ static bool solveByCharge(const std::string& proj,double dist,int requested_chg,
         if(normStr(key.proj) != normStr(proj))
             continue;
 
-        if(key.chg != requested_chg)
+        if(key.chg != requested_chg && key.chg.find(requested_chg) != 0)
             continue;
 
         if(!interp(table, dist, qe, tof, drift))
@@ -1177,7 +1177,7 @@ static bool solveByCharge(const std::string& proj,double dist,int requested_chg,
         return true;
     }
 
-    chg = 0;
+    chg = "";
     qe = 0;
     tof = 0;
     drift = 0;
@@ -1186,7 +1186,7 @@ static bool solveByCharge(const std::string& proj,double dist,int requested_chg,
 
 
 // 🔥 Compatibilidad con el resto del sistema
-static bool solve(const std::string& proj,double dist,int& chg,double& qe,double& tof,double& drift)
+static bool solve(const std::string& proj,double dist,std::string& chg,double& qe,double& tof,double& drift)
 {
     if(manual_chg_enabled)
         return solveByCharge(proj,dist,manual_chg_value,chg,qe,tof,drift);
@@ -1358,7 +1358,7 @@ std::string BasicEngine::execute(const std::string& input)
         // 🔥 CUANTIZACIÓN A 2 MILS (MIRAS ESTÁNDAR)
         double mils = std::floor((mils_raw + 1.5) / 2.0) * 2.0;
 
-        int chg = 0;
+        std::string chg = "";
         double qe = 0, tof = 0, drift = 0;
 
         double dist = dist_geom + reg_dist;
@@ -1372,7 +1372,7 @@ std::string BasicEngine::execute(const std::string& input)
         if(active_fm1_transport_qe_shape &&
            artillery_type == "155" &&
            (ammo_proj_prop == "HEA" || ammo_proj_prop == "M4A2") &&
-           chg == 6)
+           (chg == "6" || chg == "6W"))
         {
             double mid_factor = 0.0;
 
@@ -1576,7 +1576,7 @@ std::string BasicEngine::execute(const std::string& input)
         double dist = dist_geom + reg_dist;
 
         // resolver balística
-        int chg_tmp = 0;
+        std::string chg_tmp = "";
         double qe_tmp = 0, tof_tmp = 0, drift_tmp = 0;
 
         bool solved_ref = solve(ammo_proj_prop, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
@@ -2876,7 +2876,7 @@ if(current_menu=="MAP_MODEL")
         if(cmd=="AUTOCHG")
         {
             manual_chg_enabled = false;
-            manual_chg_value = 0;
+            manual_chg_value = "";
 
             return "AUTO CHARGE ENABLED\nFM (? 1 2 3 4 S P X *)";
         }
@@ -4231,7 +4231,7 @@ if(current_menu=="SHIFT")
             double dist = dist_geom + reg_dist;
 
             double qe=0,tof=0,drift=0;
-            int chg=0;
+            std::string chg="";
 
             solve(ammo_proj_prop, dist, chg, qe, tof, drift);
 
@@ -4287,7 +4287,7 @@ if(current_menu=="SHIFT")
                 double dist = dist_geom + reg_dist;
 
                 double qe_tmp=0,tof_tmp=0,drift_tmp=0;
-                int chg_tmp=0;
+                std::string chg_tmp="";
 
                 solve(ammo_proj_prop, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
 
@@ -5211,12 +5211,10 @@ if(current_menu=="CHG_EDIT")
     // Paso 2: nueva carga
     try
     {
-        int val = std::stoi(cmd);
-
         manual_chg_enabled = true;
-        manual_chg_value = val;
+        manual_chg_value = cmd;
 
-        last_inputs.push_back("CHG " + std::to_string(val));
+        last_inputs.push_back("CHG " + cmd);
 
         chg_edit_mode = false;
         chg_wait_value = false;
@@ -5335,7 +5333,7 @@ std::string BasicEngine::resetData()
     ud_active=false;
 
     manual_chg_enabled = false;
-    manual_chg_value = 0;
+    manual_chg_value = "";
     chg_allowed = false;
     chg_edit_mode = false;
     chg_wait_value = false;
