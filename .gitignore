@@ -49,3 +49,6 @@ web_ui_old/
 
 # Local runtime/auth data
 auth/users.json
+
+# Engram AI agent memory
+.engram/

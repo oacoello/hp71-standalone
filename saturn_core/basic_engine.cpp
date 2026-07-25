@@ -63,6 +63,8 @@ struct Row
     double qe;
     double tof;
     double drift;
+    double angle;   // ángulo de impacto (grados)
+    double vterm;   // velocidad terminal (m/s)
 };
 
 struct AmmoKey
@@ -129,6 +131,19 @@ static void loadTablesFromCSV(const std::string& filename)
         std::getline(ss, token, ','); row.qe = std::stod(trim(token));
         std::getline(ss, token, ','); row.tof = std::stod(trim(token));
         std::getline(ss, token, ','); row.drift = std::stod(trim(token));
+        
+        // Leer ANGLE y VTERM si existen (columnas 8 y 9)
+        row.angle = 0.0;
+        row.vterm = 0.0;
+        if(std::getline(ss, token, ','))
+        {
+            try { row.angle = std::stod(trim(token)); } catch(...) {}
+        }
+        if(std::getline(ss, token, ','))
+        {
+            try { row.vterm = std::stod(trim(token)); } catch(...) {}
+        }
+        
         firingTables[key].push_back(row);
     }
 
@@ -136,6 +151,56 @@ static void loadTablesFromCSV(const std::string& filename)
     {
         std::sort(it.second.begin(), it.second.end(),
             [](const Row& a,const Row& b){ return a.d < b.d; });
+    }
+
+    // 🔥 VALIDACIÓN DE DATOS CARGADOS
+    int warnings = 0;
+    for(const auto& it : firingTables)
+    {
+        const AmmoKey& key = it.first;
+        const std::vector<Row>& table = it.second;
+        
+        for(size_t i = 0; i < table.size(); i++)
+        {
+            // Verificar QE positivo
+            if(table[i].qe <= 0)
+            {
+                std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
+                         << " D=" << table[i].d << " QE=" << table[i].qe << " (<=0)\n";
+                warnings++;
+            }
+            
+            // Verificar TOF positivo
+            if(table[i].tof <= 0)
+            {
+                std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
+                         << " D=" << table[i].d << " TOF=" << table[i].tof << " (<=0)\n";
+                warnings++;
+            }
+            
+            // Verificar monotonicidad de QE (debe ser creciente)
+            if(i > 0 && table[i].qe < table[i-1].qe - 1.0)
+            {
+                std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
+                         << " D=" << table[i].d << " QE=" << table[i].qe 
+                         << " < anterior " << table[i-1].qe << "\n";
+                warnings++;
+            }
+            
+            // Verificar monotonicidad de TOF (debe ser creciente)
+            if(i > 0 && table[i].tof < table[i-1].tof - 0.1)
+            {
+                std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
+                         << " D=" << table[i].d << " TOF=" << table[i].tof 
+                         << " < anterior " << table[i-1].tof << "\n";
+                warnings++;
+            }
+        }
+    }
+    
+    if(warnings > 0)
+    {
+        std::cout << "TOTAL WARNINGS: " << warnings << "\n";
     }
 
     std::cout << "TABLAS CARGADAS DESDE CSV\n";
@@ -1090,6 +1155,28 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
 
             double f = (d - a.d) / (b.d - a.d);
 
+            // 🔥 INTERPOLACIÓN CUADRÁTICA (3 puntos) - Manual HP-71B
+            // Cuando hay 3 puntos disponibles, usar interpolación cuadrática
+            // Fórmula: y = y0 + f*(y1-y0) + f*(f-1)/2 * (y0 - 2*y1 + y2)
+            if(i + 1 < t.size())
+            {
+                const Row& c = t[i+1];
+                double qe_quad = a.qe + f*(b.qe - a.qe) + f*(f-1)/2.0 * (a.qe - 2.0*b.qe + c.qe);
+                double tof_quad = a.tof + f*(b.tof - a.tof) + f*(f-1)/2.0 * (a.tof - 2.0*b.tof + c.tof);
+                double drift_quad = a.drift + f*(b.drift - a.drift) + f*(f-1)/2.0 * (a.drift - 2.0*b.drift + c.drift);
+                
+                // Validar que los valores cuadráticos son razonables
+                // (la interpolación cuadrática puede dar valores negativos en bordes)
+                if(qe_quad > 0 && tof_quad > 0)
+                {
+                    qe = qe_quad;
+                    tof = tof_quad;
+                    drift = drift_quad;
+                    return true;
+                }
+            }
+            
+            // Fallback: interpolación lineal
             qe = a.qe + f * (b.qe - a.qe);
             tof = a.tof + f * (b.tof - a.tof);
             drift = a.drift + f * (b.drift - a.drift);
@@ -1105,15 +1192,10 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
 // SOLVER
 //////////////////////////////////////////////////
 
-static bool solveAuto(const std::string& proj,double dist,
+static bool solveAuto(const std::string& proj,const std::string& lot,double dist,
                      std::string& chg,double& qe,double& tof,double& drift)
 {
-    std::cout << "BUSCANDO → ART=" << artillery_type
-          << " PROJ=" << proj
-          << " DIST=" << dist << "\n";
-
     bool found = false;
-    double bestExcess = 1e9;
 
     for(auto it = firingTables.begin(); it != firingTables.end(); ++it)
     {
@@ -1124,13 +1206,67 @@ static bool solveAuto(const std::string& proj,double dist,
         if(normStr(key.artillery) != normStr(artillery_type))
             continue;
 
-        if(normStr(key.proj) != normStr(proj))
-            continue;
+        // Match PROJ against table, also try PROJ+LOT (e.g. "HE"+"A" = "HEA")
+        std::string proj_combined = normStr(proj) + normStr(lot);
+        bool has_lot = !normStr(lot).empty();
+
+        bool proj_match_direct = (normStr(key.proj) == normStr(proj));
+        bool proj_match_combined = has_lot && (normStr(key.proj) == proj_combined);
+
+        // 🔥 If LOT is provided, try combined match (e.g. HE+A=HEA).
+        //    Also try direct match if combined fails (e.g. HEA already includes lot).
+        if(has_lot)
+        {
+            if(!proj_match_combined && !proj_match_direct)
+                continue;
+        }
+        else
+        {
+            if(!proj_match_direct)
+                continue;
+        }
 
         double q,t,d;
 
         if(!interp(table, dist, q, t, d))
             continue;
+
+        // 🔥 VALIDACIÓN DE SOLUCIÓN
+        // Verificar que los valores son razonables antes de aceptar
+        if(q <= 0 || t <= 0)
+        {
+            // Solo mostrar warning en debug mode
+            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
+            //          << " D=" << dist << " QE=" << q << " TOF=" << t << " (valores <=0)\n";
+            continue;
+        }
+        
+        // Verificar QE no excesivo (máximo ~1200 mils para artillería)
+        if(q > 1200)
+        {
+            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
+            //          << " D=" << dist << " QE=" << q << " (>1200)\n";
+            continue;
+        }
+        
+        // Verificar TOF no excesivo (máximo ~120 segundos)
+        if(t > 120)
+        {
+            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
+            //          << " D=" << dist << " TOF=" << t << " (>120s)\n";
+            continue;
+        }
+        
+        // Verificar que TOF es razonable para la distancia
+        // TOF típico: ~5s por km para 155mm, ~4s por km para 105mm
+        double expected_tof_min = dist / 1000.0 * 3.0;
+        double expected_tof_max = dist / 1000.0 * 8.0;
+        if(t < expected_tof_min || t > expected_tof_max)
+        {
+            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
+            //          << " D=" << dist << " TOF=" << t << " (fuera de rango esperado)\n";
+            continue;
+        }
 
         double candidate_qe = q;
         double candidate_tof = t;
@@ -1153,7 +1289,7 @@ static bool solveAuto(const std::string& proj,double dist,
     return found;
 }
 
-static bool solveByCharge(const std::string& proj,double dist,const std::string& requested_chg,
+static bool solveByCharge(const std::string& proj,const std::string& lot,double dist,const std::string& requested_chg,
                          std::string& chg,double& qe,double& tof,double& drift)
 {
     for(auto it = firingTables.begin(); it != firingTables.end(); ++it)
@@ -1164,8 +1300,21 @@ static bool solveByCharge(const std::string& proj,double dist,const std::string&
         if(normStr(key.artillery) != normStr(artillery_type))
             continue;
 
-        if(normStr(key.proj) != normStr(proj))
-            continue;
+        std::string proj_combined2 = normStr(proj) + normStr(lot);
+        bool has_lot2 = !normStr(lot).empty();
+        bool match_direct2 = (normStr(key.proj) == normStr(proj));
+        bool match_combined2 = has_lot2 && (normStr(key.proj) == proj_combined2);
+
+        if(has_lot2)
+        {
+            if(!match_combined2 && !match_direct2)
+                continue;
+        }
+        else
+        {
+            if(!match_direct2)
+                continue;
+        }
 
         if(key.chg != requested_chg && key.chg.find(requested_chg) != 0)
             continue;
@@ -1186,12 +1335,12 @@ static bool solveByCharge(const std::string& proj,double dist,const std::string&
 
 
 // 🔥 Compatibilidad con el resto del sistema
-static bool solve(const std::string& proj,double dist,std::string& chg,double& qe,double& tof,double& drift)
+static bool solve(const std::string& proj,const std::string& lot,double dist,std::string& chg,double& qe,double& tof,double& drift)
 {
     if(manual_chg_enabled)
-        return solveByCharge(proj,dist,manual_chg_value,chg,qe,tof,drift);
+        return solveByCharge(proj,lot,dist,manual_chg_value,chg,qe,tof,drift);
 
-    return solveAuto(proj,dist,chg,qe,tof,drift);
+    return solveAuto(proj,lot,dist,chg,qe,tof,drift);
 }
 
 //////////////////////////////////////////////////
@@ -1202,6 +1351,129 @@ static double computeSite(double iv,double dist)
 {
     if(dist==0) return 0;
     return (iv/dist)*1000.0*1.0186;
+}
+
+//////////////////////////////////////////////////
+// HP-71B CALIBRATION
+//////////////////////////////////////////////////
+
+// Extract numeric charge from "6W" -> 6
+static int extractChargeNumber(const std::string& chg)
+{
+    std::string num;
+    for(char c : chg)
+    {
+        if(std::isdigit(static_cast<unsigned char>(c)))
+            num += c;
+    }
+    if(num.empty()) return 0;
+    try { return std::stoi(num); }
+    catch(...) { return 0; }
+}
+
+// Smoothstep helper for calibration
+static double smoothstepCal(double edge0, double edge1, double x)
+{
+    double t = (std::max)(0.0, (std::min)(1.0, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3.0 - 2.0 * t);
+}
+
+// Low curve factor for HEA CHG=6 — exact port from generar_tablas.py
+// Returns factor 0..1 that is then applied as: qe *= 1.0 - (0.075 * factor)
+// Range: 9000-10000m only; factor=0 outside this range
+static double chg6LowCurveFactor(double dist_m)
+{
+    const double start = 9000.0;
+    const double full = 9300.0;
+    const double fade_start = 9600.0;
+    const double end = 10000.0;
+
+    if(dist_m < start || dist_m >= end)
+        return 0.0;
+
+    if(dist_m < full)
+        return smoothstepCal(start, full, dist_m);
+
+    if(dist_m <= fade_start)
+        return 1.0;
+
+    return 1.0 - smoothstepCal(fade_start, end, dist_m);
+}
+
+// HP-71B calibration: adjust FT-derived QE/TOF to match physical calculator
+// Only applies to 155mm; 105mm FT data already matches HP-71B
+static void hp71bCalibrate(int art_type, const std::string& proj, const std::string& lot,
+                           const std::string& chg, double dist_m, double& qe, double& tof)
+{
+    if(art_type != 155) return;  // only calibrate 155mm
+    
+    // Parameters from old generar_tablas.py (commit 3ff1ecb)
+    const double base = 39.5;
+    const double chg_scale = 13.2;
+    double curve, power, qe_bias, tof_scale, tof_bias;
+    
+    // Determine projectile type and charge
+    int chg_num = extractChargeNumber(chg);
+    std::string proj_combined = proj + lot;  // e.g., "HE"+"A" = "HEA"
+    // Also handle case where proj already includes lot (e.g., "HEA"+"A" → use "HEA")
+    if(proj_combined != "HEA" && proj == "HEA")
+        proj_combined = "HEA";
+    
+    if(proj_combined == "HEA")
+    {
+        if(chg_num == 6)
+        {
+            curve = 0.30;
+            power = 1.11;
+            qe_bias = -38.0;
+            tof_scale = 252.0;
+            tof_bias = -1.20;
+        }
+        else if(chg_num == 5 || chg_num == 7)
+        {
+            curve = 0.32;
+            power = 1.08;
+            qe_bias = -5.0;
+            tof_scale = 252.0;
+            tof_bias = -0.30;
+        }
+        else
+        {
+            // Other HEA charges: use CHG=5/7 parameters as default
+            curve = 0.32;
+            power = 1.08;
+            qe_bias = -5.0;
+            tof_scale = 252.0;
+            tof_bias = -0.30;
+        }
+    }
+    else  // HE (all charges)
+    {
+        curve = 0.32;
+        power = 1.0;
+        qe_bias = 0.0;
+        tof_scale = 252.0;
+        tof_bias = 0.0;
+    }
+    
+    // Compute HP-71B QE using old formula
+    double km = dist_m / 1000.0;
+    double hp71_qe = ((base * km) + (curve * km * km) + (chg_num * chg_scale)) / power + qe_bias;
+    
+    // Compute HP-71B TOF using old formula
+    double hp71_tof = dist_m / (tof_scale * power) + chg_num * 0.16 + tof_bias;
+    
+    // Apply low curve factor for HEA CHG=6 (exact port from generar_tablas.py)
+    if(proj_combined == "HEA" && chg_num == 6)
+    {
+        double low_factor = chg6LowCurveFactor(dist_m);
+        hp71_qe *= 1.0 - (0.075 * low_factor);
+        hp71_tof *= 1.0 - (0.135 * low_factor);
+    }
+    
+    // Replace FT values with HP-71B calibrated values
+    qe = hp71_qe;
+    tof = hp71_tof;
 }
 
 //////////////////////////////////////////////////
@@ -1364,56 +1636,35 @@ std::string BasicEngine::execute(const std::string& input)
         double dist = dist_geom + reg_dist;
 
         // 🔥 PRIMERO resolver balística
-        bool solved = solve(ammo_proj_prop, dist, chg, qe, tof, drift);
+        bool solved = solve(ammo_proj_prop, ammo_proj_lot, dist, chg, qe, tof, drift);
 
         // =====================================================
-        // 🔥 MODULACIÓN QE SOLO PARA FM1 TRANSPORT / TGT2
+        // HP-71B CALIBRATION: ajustar QE/TOF para 155mm
+        // Las tablas FT dan valores diferentes al HP-71B físico.
+        // Aplicamos calibración basada en las fórmulas originales
+        // del generar_tablas.py (commit 3ff1ecb)
         // =====================================================
-        if(active_fm1_transport_qe_shape &&
-           artillery_type == "155" &&
-           (ammo_proj_prop == "HEA" || ammo_proj_prop == "M4A2") &&
-           (chg == "6" || chg == "6W"))
+        if(solved)
         {
-            double mid_factor = 0.0;
-
-            if(dist >= 9900.0 && dist < 10400.0)
-            {
-                auto smooth = [](double edge0, double edge1, double x) -> double
-                {
-                    if(edge0 == edge1)
-                        return 0.0;
-
-                    double t = (x - edge0) / (edge1 - edge0);
-
-                    if(t < 0.0) t = 0.0;
-                    if(t > 1.0) t = 1.0;
-
-                    return t * t * (3.0 - 2.0 * t);
-                };
-
-                if(dist < 10050.0)
-                {
-                    mid_factor = smooth(9900.0, 10050.0, dist);
-                }
-                else if(dist <= 10300.0)
-                {
-                    mid_factor = 1.0;
-                }
-                else
-                {
-                    mid_factor = 1.0 - smooth(10300.0, 10400.0, dist);
-                }
-            }
-
-            qe *= 1.0 - (0.0284 * mid_factor);
+            int art_num = (artillery_type == "155") ? 155 : 105;
+            hp71bCalibrate(art_num, ammo_proj_prop, ammo_proj_lot, chg, dist, qe, tof);
         }
         
         // ================================
-        // 🔥 DRIFT SINTÉTICO (SI TABLA = 0)
+        // 🔥 DRIFT: USAR DATOS FT REALES
         // ================================
-        if(std::abs(drift) < 0.001)
+        // El drift del CSV ya viene de las tablas de tiro reales
+        // Solo usar fórmula sintética si el drift es extremadamente bajo
+        // (menos de 0.01 mil, que indica datos no disponibles)
+        if(std::abs(drift) < 0.01)
         {
-            drift = 0.00038 * dist;  // factor realista artillería 155
+            // Para 155mm M483A1: drift típico ~0.38 mils/100m
+            // Para 105mm M1: drift típico ~0.1 mils/100m
+            // Usar factor conservador basado en el caliber
+            if(artillery_type == "155")
+                drift = 0.0038 * dist;  // 0.38 mils/100m para 155mm
+            else
+                drift = 0.001 * dist;   // 0.1 mils/100m para 105mm
         }
 
         // 🔥 AHORA sí calcular DEF correctamente
@@ -1450,32 +1701,6 @@ std::string BasicEngine::execute(const std::string& input)
             jump_h = 0.0;
         }
 
-        if((int)i == base_piece_index)
-        {
-            std::cout << "\n[DEF DEBUG BASE PIECE]\n";
-            std::cout << "MENU=" << current_menu << "\n";
-            std::cout << "AZ=" << mils << "\n";
-            std::cout << "AZ_LAY=" << az_lay << "\n";
-            std::cout << "REF_DEF=" << def_base << "\n";
-            std::cout << "DEF_BEFORE_CORR=" << (def_base - (mils - az_lay)) << "\n";            std::cout << "REG_DEF=" << reg_def << "\n";
-            std::cout << "DF_CORR=" << df_corr << "\n";
-            std::cout << "DRIFT=" << drift << "\n";
-            std::cout << "TOF=" << tof << "\n";
-            std::cout << "DRIFT_ACCUM=" << drift_accum << "\n";
-            std::cout << "JUMP_H=" << jump_h << "\n";
-            std::cout << "DEF_BEFORE_ROUND=" << (def + drift_accum + jump_h) << "\n";
-            std::cout << "[/DEF DEBUG BASE PIECE]\n\n";
-        }
-
-        def += drift_accum;
-        def += jump_h;
-        // 🔥 REDONDEO HP71
-        def = std::round(def);
-
-        // 🔥 normalizar AL FINAL
-        while(def < 0) def += 6400;
-        while(def >= 6400) def -= 6400;
-
         if(manual_chg_enabled)
             chg = manual_chg_value;
 
@@ -1500,6 +1725,15 @@ std::string BasicEngine::execute(const std::string& input)
 
             def += offset;
         }
+
+        def += drift_accum;
+        def += jump_h;
+        // 🔥 REDONDEO HP71
+        def = std::round(def);
+
+        // 🔥 normalizar AL FINAL
+        while(def < 0) def += 6400;
+        while(def >= 6400) def -= 6400;
 
         if(!solved)
         {
@@ -1579,7 +1813,7 @@ std::string BasicEngine::execute(const std::string& input)
         std::string chg_tmp = "";
         double qe_tmp = 0, tof_tmp = 0, drift_tmp = 0;
 
-        bool solved_ref = solve(ammo_proj_prop, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
+        bool solved_ref = solve(ammo_proj_prop, ammo_proj_lot, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
 
         if(std::abs(drift_tmp) < 0.001)
         {
@@ -4233,7 +4467,7 @@ if(current_menu=="SHIFT")
             double qe=0,tof=0,drift=0;
             std::string chg="";
 
-            solve(ammo_proj_prop, dist, chg, qe, tof, drift);
+            solve(ammo_proj_prop, ammo_proj_lot, dist, chg, qe, tof, drift);
 
             if(std::abs(drift) < 0.001)
             {
@@ -4289,7 +4523,7 @@ if(current_menu=="SHIFT")
                 double qe_tmp=0,tof_tmp=0,drift_tmp=0;
                 std::string chg_tmp="";
 
-                solve(ammo_proj_prop, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
+                solve(ammo_proj_prop, ammo_proj_lot, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
 
                 if(std::abs(drift_tmp) < 0.001)
                 {

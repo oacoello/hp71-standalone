@@ -1,7 +1,7 @@
 import os
 import csv
 
-OUTPUT_PATH = r"C:\Users\dolfo\OneDrive\Documentos\GitHub\hp71-standalone\tables\tables.csv"
+OUTPUT_PATH = r"C:\Users\DolfoZR\OneDrive\Documentos\GitHub\hp71-standalone\tables\tables.csv"
 
 os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 
@@ -25,10 +25,10 @@ os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 # Cuando existan mas comparativas reales, estos parametros se afinan.
 # ============================================================
 
-BASE_105_SCALE = 66.0
+BASE_105_SCALE = 64.05
 CHG_105_SCALE = 10.5
 CURVE_105_SCALE = 0.42
-TOF_105_SCALE = 251.0
+TOF_105_SCALE = 250.5
 
 # Valores originales previos:
 # BASE_105_SCALE = 38.0
@@ -493,10 +493,10 @@ def add_155_family(writer):
         base_scale=39.5,
         chg_scale=13.2,
         curve_scale=0.30,
-        tof_scale=252.0,
+        tof_scale=277.8,
         drift_scale=0.6267,
         power=1.11,
-        qe_bias=-38.0,
+        qe_bias=-44.5,
         tof_bias=-1.20
     )
 
@@ -532,10 +532,10 @@ def add_155_family(writer):
         base_scale=39.5,
         chg_scale=13.2,
         curve_scale=0.30,
-        tof_scale=252.0,
+        tof_scale=277.8,
         drift_scale=0.6267,
         power=1.11,
-        qe_bias=-38.0,
+        qe_bias=-44.5,
         tof_bias=-1.20
     )
 
