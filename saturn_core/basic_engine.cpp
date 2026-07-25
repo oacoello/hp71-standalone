@@ -1674,12 +1674,12 @@ std::string BasicEngine::execute(const std::string& input)
         double def = 0.0;
 
         // CORRECCION DE SIGNO DEF:
-        // La HP fisica usa REF_DEF - (AZ - AZ_LAY).
-        // Esto evita que cuando AZ sea mayor que AZ_LAY la deflexion suba incorrectamente.
+        // La HP fisica usa 3200 + REF_DEF - (AZ - AZ_LAY).
+        // 3200 es el cero del mira (centro de la escala de deflexion).
         if(use_fm1_reverse)
-            def = def_base - (mils - az_lay);
+            def = 3200.0 + def_base - (mils - az_lay);
         else
-            def = def_base - (mils - az_lay);
+            def = 3200.0 + def_base - (mils - az_lay);
 
         if(!use_fm1_reverse)
             def += reg_def + df_corr;
@@ -1827,11 +1827,11 @@ std::string BasicEngine::execute(const std::string& input)
         double def_ref = 0.0;
 
         // Misma convencion de DEF que la HP fisica:
-        // REF_DEF - (AZ - AZ_LAY)
+        // 3200 + REF_DEF - (AZ - AZ_LAY)
         if(use_fm1_reverse_ref)
-            def_ref = def_base - (mils - az_lay);
+            def_ref = 3200.0 + def_base - (mils - az_lay);
         else
-            def_ref = def_base - (mils - az_lay);
+            def_ref = 3200.0 + def_base - (mils - az_lay);
 
         if(!use_fm1_reverse_ref)
             def_ref += reg_def + df_corr;
@@ -4476,8 +4476,8 @@ if(current_menu=="SHIFT")
 
             // DEF REAL LIMPIA
             // Convencion corregida:
-            // REF_DEF - (AZ - AZ_LAY)
-            double def_real = def_base - (mils - az_lay);
+            // 3200 + REF_DEF - (AZ - AZ_LAY)
+            double def_real = 3200.0 + def_base - (mils - az_lay);
             def_real += df_corr;
             
             double drift_accum_real = drift * (tof / 25.0);
@@ -4531,8 +4531,8 @@ if(current_menu=="SHIFT")
                 }
 
                 // DEF temporal con la misma convencion corregida:
-                // REF_DEF - (AZ - AZ_LAY)
-                double def_temp = def_base - (mils - az_lay);
+                // 3200 + REF_DEF - (AZ - AZ_LAY)
+                double def_temp = 3200.0 + def_base - (mils - az_lay);
                 def_temp += reg_def + df_corr;
 
                 double drift_accum = drift_tmp * (tof_tmp / 25.0);
