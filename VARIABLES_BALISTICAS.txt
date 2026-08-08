@@ -1,0 +1,384 @@
+================================================================
+VARIABLES PARA CÁLCULOS BALÍSTICOS - HP-71B EMULATOR
+================================================================
+Fecha: 2026-08-08
+Modelo: STANAG 4355 (G1 + cd0 fijo)
+================================================================
+
+PARTE 1: VARIABLES DE ENTRADA (INPUTS)
+================================================================
+
+1.1 COB (CONDUCT OF BATTERY) - DATOS DEL CAÑÓN
+----------------------------------------------------------------
+Variable        Ejemplo   Unidad   Descripción
+-----------     -------   ------   -----------
+gb_e            55311     m        Este del Gun Base
+gb_n            83242     m        Norte del Gun Base
+gb_alt          1517      m        Altitud del Gun Base
+cob_dir         3320      mils     Dirección de la pieza
+cob_dist        0         m        Distancia pieza a Gun Base
+cob_iv          0         m        Incremento vertical
+base_piece      2         #        Pieza base (1-6)
+artillery_type  155       mm       Tipo de artillería
+
+1.2 AMMO - MUNICIÓN
+----------------------------------------------------------------
+Variable        Ejemplo     Unidad   Descripción
+-----------     -------     ------   -----------
+proj            HEA         string   Proyectil (HEA, HE, etc.)
+lot             M483A1      string   Lote del proyectil
+wt              0           kg       Peso del proyectil
+
+1.3 TGT - BLANCO
+----------------------------------------------------------------
+Variable        Ejemplo     Unidad   Descripción
+-----------     -------     ------   -----------
+knpt            AA1000      string   Nombre del punto (KNPT)
+tgt_e           54069       m        Este del blanco
+tgt_n           72858       m        Norte del blanco
+tgt_alt         1360        m        Altitud del blanco
+
+1.4 OBS - OBSERVADOR
+----------------------------------------------------------------
+Variable        Ejemplo     Unidad   Descripción
+-----------     -------     ------   -----------
+obs_id          1           #        ID del observador
+obs_e           54069       m        Este del observador
+obs_n           72858       m        Norte del observador
+obs_alt         1360        m        Altitud del observador
+obs_gz          0           grados   Grado de zafadura
+
+1.5 MAP - MODELO DE MAPA
+----------------------------------------------------------------
+Variable        Ejemplo     Unidad   Descripción
+-----------     -------     ------   -----------
+map_e_max       60000       m        Este máximo del mapa
+map_e_min       50000       m        Este mínimo del mapa
+map_n_max       90000       m        Norte máximo del mapa
+map_n_min       70000       m        Norte mínimo del mapa
+map_gz          0           grados   Grado de zafadura
+map_spher       WGS84       string   Esferoide
+
+1.6 MET - METEOROLOGÍA
+----------------------------------------------------------------
+Variable        Ejemplo     Unidad   Descripción
+-----------     -------     ------   -----------
+wind_dir        0           mils     Dirección del viento
+wind_speed      0           m/s      Velocidad del viento
+temperature     15          °C       Temperatura ambiental
+
+1.7 STANAG - CONFIGURACIÓN BALÍSTICA
+----------------------------------------------------------------
+Variable        Ejemplo     Unidad   Descripción
+-----------     -------     ------   -----------
+cd0             0.157       adim     Coef. arrastre base (calibrado)
+v0_3G           279.0       m/s      Vel. boca carga 3G
+v0_4G           320.0       m/s      Vel. boca carga 4G
+v0_5G           382.0       m/s      Vel. boca carga 5G
+v0_3W           292.0       m/s      Vel. boca carga 3W
+v0_4W           334.0       m/s      Vel. boca carga 4W
+v0_5W           389.0       m/s      Vel. boca carga 5W
+v0_6W           495.0       m/s      Vel. boca carga 6W (calibrado)
+v0_7W           565.0       m/s      Vel. boca carga 7W
+v0_7R           689.0       m/s      Vel. boca carga 7R
+v0_8S           827.0       m/s      Vel. boca carga 8S (máxima)
+
+
+PARTE 2: CONSTANTES DEL PROYECTIL (M107 155mm)
+================================================================
+
+2.1 DATOS FÍSICOS
+----------------------------------------------------------------
+Variable        Valor       Unidad   Descripción
+-----------     -------     ------   -----------
+mass            43.2        kg       Masa del proyectil
+caliber         0.155       m        Calibre (155mm)
+area            0.01887     m²       Área de referencia (π·r²)
+cd0_ref         0.2300      adim     Cd base del estándar G1
+
+2.2 TABLA G1 (DRAG vs MACH) - 25 PUNTOS
+----------------------------------------------------------------
+Mach    Cd/G1Cd0_ref    Descripción
+-----   -----------     -----------
+0.00    0.2300          Subsónico bajo
+0.20    0.2300          Subsónico bajo
+0.40    0.2300          Subsónico bajo
+0.60    0.2350          Subsónico bajo (fin)
+0.70    0.2500          Transónico (inicio)
+0.80    0.2800          Transónico (inicio)
+0.85    0.3100          Transónico
+0.90    0.3500          Transónico
+0.95    0.4000          Transónico crítico
+1.00    0.4500          Barrera del sonido
+1.05    0.4700          Supersónico bajo
+1.10    0.4700          Supersónico bajo
+1.15    0.4600          Supersónico
+1.20    0.4500          Supersónico
+1.30    0.4300          Supersónico
+1.40    0.4100          Supersónico
+1.50    0.3900          Supersónico alto
+1.60    0.3750          Supersónico alto
+1.70    0.3600          Supersónico alto
+1.80    0.3500          Supersónico alto
+1.90    0.3400          Supersónico alto
+2.00    0.3300          Supersónico de salida
+2.20    0.3150          Supersónico de salida
+2.50    0.3000          Supersónico alto
+3.00    0.2600          Supersónico de salida
+
+
+PARTE 3: CONSTANTES ATMOSFÉRICAS (ISA - STANAG 4355)
+================================================================
+
+3.1 PARÁMETROS ESTÁNDAR
+----------------------------------------------------------------
+Variable        Valor           Unidad       Descripción
+-----------     -------         ------       -----------
+T0              288.15          K            Temp. nivel del mar
+P0              101325          Pa           Presión nivel del mar
+L               0.0065          K/m          Gradiente térmico
+R               287.05          J/(kg·K)     Constante del gas
+g               9.80665         m/s²         Gravedad
+gamma           1.4             adim         Cp/Cv del aire
+
+3.2 FÓRMULAS ATMOSFÉRICAS
+----------------------------------------------------------------
+T(h)   = T0 - L·h                              Temperatura
+P(h)   = P0·(T/T0)^(g/(R·L))                  Presión
+ρ(h)   = P/(R·T)                               Densidad
+a(h)   = √(γ·R·T)                              Vel. del sonido
+
+Donde:
+  h = altitud (m), limitada a [0, 11000]m (troposfera)
+
+
+PARTE 4: FÓRMULAS BALÍSTICAS
+================================================================
+
+4.1 FUERZA DE ARRASTRE
+----------------------------------------------------------------
+Fd = 0.5 · ρ · v² · Cd · A
+
+Donde:
+  Fd  = Fuerza de arrastre (N)
+  ρ   = Densidad del aire (kg/m³)
+  v   = Velocidad del proyectil (m/s)
+  Cd  = Coeficiente de arrastre (adim)
+  A   = Área de referencia (m²)
+
+4.2 COEFICIENTE DE ARRASTRE (G1)
+----------------------------------------------------------------
+Cd = cd0 · (G1_Cd(Mach) / G1_CD0_ref)
+
+Donde:
+  cd0         = 0.157 (calibrado)
+  G1_Cd(Mach) = Interpolación de la tabla G1
+  G1_CD0_ref  = 0.2300
+
+4.3 NÚMERO MACH
+----------------------------------------------------------------
+Mach = v / a(h)
+
+Donde:
+  v = Velocidad del proyectil (m/s)
+  a = Velocidad del sonido a altitud h (m/s)
+
+4.4 ECUACIONES DE MOVIMIENTO (2D)
+----------------------------------------------------------------
+dx/dt  = vx
+dy/dt  = vy
+dvx/dt = -Fd/m · (vx/v)
+dvy/dt = -g - Fd/m · (vy/v)
+
+Donde:
+  vx, vy = Componentes de velocidad
+  m      = Masa del proyectil (43.2 kg)
+  g      = Gravedad (9.80665 m/s²)
+
+4.5 INTEGRACIÓN RK4
+----------------------------------------------------------------
+k1 = f(t, y)
+k2 = f(t + dt/2, y + dt/2 · k1)
+k3 = f(t + dt/2, y + dt/2 · k2)
+k4 = f(t + dt, y + dt · k3)
+
+y(t+dt) = y(t) + dt/6 · (k1 + 2·k2 + 2·k3 + k4)
+
+Donde:
+  dt = 0.005 s (paso de integración)
+
+4.6 RESOLUCIÓN QE (MÉTODO BRENT)
+----------------------------------------------------------------
+Fase 1: Búsqueda de alcance máximo
+  - Escaneo de 1° a 59° en pasos de 2°
+  - Encuentra ángulo de alcance máximo
+
+Fase 2: Búsqueda binaria
+  - Lado ascendente de la curva de alcance
+  - 25 iteraciones de precisión
+  - Resultado en mils (6400 mils = 360°)
+
+
+PARTE 5: CORRECCIONES ADICIONALES
+================================================================
+
+5.1 DERIVA POR GIRO (SPIN DRIFT)
+----------------------------------------------------------------
+Fórmula: SD = K · range_km²
+
+Donde:
+  K         = 0.015 (constante M107)
+  range_km  = Alcance en kilómetros
+  SD        = Deriva en mils (hacia la derecha)
+
+Ejemplo:
+  10 km → SD = 0.015 · 10² = 1.5 mils derecha
+
+5.2 EFECTO DE CORIOLIS
+----------------------------------------------------------------
+Fórmula: C = ωe · T · sin(lat) · R
+
+Donde:
+  ωe    = 7.2921e-5 rad/s (vel. rotación Tierra)
+  T     = Tiempo de vuelo (s)
+  lat   = Latitud (-32° Buenos Aires)
+  R     = Alcance (m)
+
+Conversión a mils:
+  C_mils = C_m · 6400 / range_m
+
+
+PARTE 6: VARIABLES CALCULADAS (OUTPUTS)
+================================================================
+
+6.1 RESULTADOS PRINCIPALES
+----------------------------------------------------------------
+Variable        Unidad   Descripción
+-----------     ------   -----------
+qe              mils     Ángulo de elevación (Quadrant Elevation)
+tof             s        Tiempo de vuelo
+range           m        Alcance horizontal
+drift           mils     Deriva total (spin + Coriolis)
+azimuth         mils     Azimuth al blanco
+
+6.2 RESULTADOS POR PIEZA
+----------------------------------------------------------------
+Variable        Unidad   Descripción
+-----------     ------  -----------
+qe_piece        mils     QE específico para cada pieza
+def_piece       mils     Deflection para cada pieza
+tof_piece       s        TOF para cada pieza
+
+6.3 CORRECCIONES APLICADAS
+----------------------------------------------------------------
+Variable        Unidad   Descripción
+-----------     ------   -----------
+reg_dist        mils     Corrección de registro distancia
+reg_def         mils     Corrección de registro deflection
+df_corr         mils     Corrección de dirección de fuego
+time_reg_corr   s        Corrección de tiempo de registro
+ud_corr         mils     Corrección up/down
+spin_drift      mils     Deriva por giro
+coriolis        mils     Efecto Coriolis
+
+
+PARTE 7: TABLAS FT (FIRING TABLES)
+================================================================
+
+7.1 ESTRUCTURA DEL CSV (tables/tables.csv)
+----------------------------------------------------------------
+Columna    Tipo     Descripción
+-------    ----     -----------
+ART        string   Artillería (155, 105, etc.)
+PROJ       string   Proyectil (HEA, HE, etc.)
+CHG        string   Carga (3G, 4G, 5G, 3W, etc.)
+DIST       int      Distancia (m)
+QE         float    Ángulo de elevación (mils)
+TOF        float    Tiempo de vuelo (s)
+DRIFT      float    Deriva (mils)
+ANGLE      float    Ángulo de impacts (mils)
+VTERM      float    Velocidad terminal (m/s)
+
+7.2 CARGAS DISPONIBLES
+----------------------------------------------------------------
+Carga   Tipo        V0 (m/s)    Rango max (m)
+-----   --------    ---------   ------------
+3G      Green Bag   279.0       ~6000
+4G      Green Bag   320.0       ~8000
+5G      Green Bag   382.0       ~10000
+3W      White Bag   292.0       ~7000
+4W      White Bag   334.0       ~9000
+5W      White Bag   389.0       ~11000
+6W      White Bag   495.0       ~14000
+7W      White Bag   565.0       ~16000
+7R      Red Bag     689.0       ~19000
+8S      Super       827.0       ~22000
+
+
+PARTE 8: VALIDACIÓN
+================================================================
+
+8.1 DATOS DE CALIBRACIÓN
+----------------------------------------------------------------
+Fuente:         BATERIA BRAVO 155mm 1BAC
+Gun Base:       E=55311 N=83242 ALT=1517
+Target:         AA1000 E=54069 N=72858 ALT=1360
+Distancia:      10458.0 m
+Carga:          6W
+V0 calibrado:   495 m/s
+cd0 calibrado:  0.157
+
+8.2 RESULTADO
+----------------------------------------------------------------
+QE real:        428.9 mils
+QE calculado:   428.5 mils
+Diferencia:     -0.4 mils (-0.1%)
+
+
+PARTE 9: COMANDOS DISPONIBLES EN FM
+================================================================
+
+9.1 COMANDOS DE ENTRADA
+----------------------------------------------------------------
+Comando         Descripción
+-------         -----------
+1               AREA FIRE (FM1)
+2               REG (FM2)
+3               DOCTRINAL (FM3)
+4               E.A. Y P.M.I. (FM4)
+S               SHEAF
+R               REVIEW (mostrar datos)
+A               TODAS LAS PIEZAS (FFE)
+T               SHIFT
+X               EXECUTE (calcular)
+P               BACK (volver)
+*               HOME (menú principal)
+
+9.2 COMANDOS STANAG
+----------------------------------------------------------------
+Comando         Descripción
+-------         -----------
+STANAG          Comparar HP-71B vs STANAG
+STANAG_CAL      Calibrar cd0 contra FT
+CD0=0.157       Cambiar coef. arrastre
+V0_6W=500       Cambiar V0 de carga
+SHOW            Mostrar configuración actual
+AUTOCHG         Volver a carga automática
+
+9.3 FLUJO DE ENTRADA TÍPICO
+----------------------------------------------------------------
+1. MAIN → Ingresar GB (Gun Base)
+2. MAIN → Ingresar COB (piezas)
+3. MAIN → Ingresar AMMO (munición)
+4. MAIN → Ingresar TGT (blanco)
+5. MAIN → Ingresar OBS (observador)
+6. MAIN → Ingresar MAP (modelo mapa)
+7. MAIN → Ingresar MET (meteorología)
+8. FM → Seleccionar tipo de tiro
+9. FM → Ingresar datos específicos
+10. FM → X (execute)
+
+
+================================================================
+FIN DEL DOCUMENTO
+================================================================
