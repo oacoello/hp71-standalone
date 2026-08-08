@@ -1,13 +1,21 @@
 """
-Convert FT155 and FT105 firing tables Excel -> CSV (v6)
+Convert FT155 and FT105 firing tables Excel -> CSV (v7)
 
 FIXES:
   - FT155: TOF is column 6 (C5 was wind correction in meters!)
+  - FT155: Uses C1 (QE_M107) ONLY, NOT C1+C2 (M483A1)
+    HEA = M107 projectile, so we store M107 values
+    C2 is the correction for M483A1 which is a DIFFERENT projectile
   - FT105: Post-processing enforces QE monotonicity for low-angle
   - FT105: Stricter classification of interleaved entries
 
 FT155 columns: C1=QE_M107, C2=CORR_M483A1, C3=CORR_50mHGT, C4=CORR_100mRG,
   C5=CORR_WIND(m), C6=TOF(sec), C7=RANGE(m), C8=CORR_DEFL, C9=DRIFT, C10=TV
+
+IMPORTANT: FT155-AM-2 is for US Army guns (M109/M198/M777, L39-40 barrels)
+  NOT for Argentine CITER L33 (L33 barrel, derived from French SOFMA/AMX MK F3)
+  The L33 has different v0 per charge than US guns.
+
 FT105 columns: C2=QE, C3=TOF(sec), C4=RANGE(m), C5=ANGLE(deg),
   C6=DRIFT, C7=TV(m/s), C8=CORR_WIND, C9=CORR_HGT, C10=CORR_RG
 """
@@ -59,7 +67,10 @@ def extract_ft155(wb):
             drift   = ws.cell(r, 9).value    # C9: Drift (mils)
             if qe_m107 is None or dist is None: continue
             if not isinstance(dist, (int, float)) or dist <= 0: continue
-            qe = float(qe_m107) + (float(corr) if corr and isinstance(corr, (int, float)) else 0.0)
+            # Use C1 only (M107 HE), NOT C1+C2 (M483A1)
+            # HEA = M107 projectile, so we store M107 QE values
+            # C2 is the correction for M483A1 which is a DIFFERENT projectile
+            qe = float(qe_m107)
             rows.append({
                 'art': 155, 'proj': 'HEA', 'chg': chg,
                 'dist': int(dist), 'qe': round(qe, 1),
@@ -213,11 +224,11 @@ def extract_ft105(wb):
 
 
 def main():
-    print("=== Convirtiendo FT a CSV (v6 - fixed columns + monotonic) ===\n")
+    print("=== Convirtiendo FT a CSV (v7 - M107 only, no M483A1) ===\n")
     
     all_csv = []
     
-    print("FT155 (M483A1):")
+    print("FT155 (M107 HE only, C1 column):")
     wb155 = openpyxl.load_workbook(FT155_PATH, data_only=True)
     ft155 = extract_ft155(wb155)
     all_csv.extend(ft155)

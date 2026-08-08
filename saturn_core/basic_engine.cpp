@@ -1209,20 +1209,36 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         // Match PROJ against table, also try PROJ+LOT (e.g. "HE"+"A" = "HEA")
         std::string proj_combined = normStr(proj) + normStr(lot);
         bool has_lot = !normStr(lot).empty();
+        std::string key_proj = normStr(key.proj);
+        std::string norm_proj = normStr(proj);
 
-        bool proj_match_direct = (normStr(key.proj) == normStr(proj));
-        bool proj_match_combined = has_lot && (normStr(key.proj) == proj_combined);
+        bool proj_match_direct = (key_proj == norm_proj);
+        bool proj_match_combined = has_lot && (key_proj == proj_combined);
+
+        // 🔥 FALLBACK: Suffix match when proj is short (e.g. "A" matches "HEA").
+        //    This handles the COB AMMO flow where user enters I→A→LOT,
+        //    storing proj="A" but CSV key is "HEA".
+        bool proj_match_suffix = false;
+        if(!proj_match_direct && !proj_match_combined)
+        {
+            if((int)norm_proj.size() <= 3 && (int)key_proj.size() > (int)norm_proj.size())
+            {
+                std::string suffix = key_proj.substr(key_proj.size() - norm_proj.size());
+                proj_match_suffix = (suffix == norm_proj);
+            }
+        }
 
         // 🔥 If LOT is provided, try combined match (e.g. HE+A=HEA).
         //    Also try direct match if combined fails (e.g. HEA already includes lot).
+        //    Also try suffix match for COB flow (e.g. "A" matches "HEA").
         if(has_lot)
         {
-            if(!proj_match_combined && !proj_match_direct)
+            if(!proj_match_combined && !proj_match_direct && !proj_match_suffix)
                 continue;
         }
         else
         {
-            if(!proj_match_direct)
+            if(!proj_match_direct && !proj_match_suffix)
                 continue;
         }
 
@@ -1302,17 +1318,30 @@ static bool solveByCharge(const std::string& proj,const std::string& lot,double 
 
         std::string proj_combined2 = normStr(proj) + normStr(lot);
         bool has_lot2 = !normStr(lot).empty();
-        bool match_direct2 = (normStr(key.proj) == normStr(proj));
-        bool match_combined2 = has_lot2 && (normStr(key.proj) == proj_combined2);
+        std::string key_proj2 = normStr(key.proj);
+        std::string norm_proj2 = normStr(proj);
+        bool match_direct2 = (key_proj2 == norm_proj2);
+        bool match_combined2 = has_lot2 && (key_proj2 == proj_combined2);
+
+        // 🔥 FALLBACK: Suffix match (same as solveAuto)
+        bool match_suffix2 = false;
+        if(!match_direct2 && !match_combined2)
+        {
+            if((int)norm_proj2.size() <= 3 && (int)key_proj2.size() > (int)norm_proj2.size())
+            {
+                std::string suffix2 = key_proj2.substr(key_proj2.size() - norm_proj2.size());
+                match_suffix2 = (suffix2 == norm_proj2);
+            }
+        }
 
         if(has_lot2)
         {
-            if(!match_combined2 && !match_direct2)
+            if(!match_combined2 && !match_direct2 && !match_suffix2)
                 continue;
         }
         else
         {
-            if(!match_direct2)
+            if(!match_direct2 && !match_suffix2)
                 continue;
         }
 
@@ -1418,6 +1447,17 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
     // Also handle case where proj already includes lot (e.g., "HEA"+"A" → use "HEA")
     if(proj_combined != "HEA" && proj == "HEA")
         proj_combined = "HEA";
+    // 🔥 FALLBACK: If proj is short (e.g. "A" from COB flow), check suffix of known types
+    //    "A" → ends with "A" → "HEA"
+    if(proj_combined != "HEA" && proj_combined != "HE")
+    {
+        if(proj.size() <= 3 && proj.size() < std::string("HEA").size())
+        {
+            std::string hea_suffix = std::string("HEA").substr(std::string("HEA").size() - proj.size());
+            if(proj == hea_suffix)
+                proj_combined = "HEA";
+        }
+    }
     
     if(proj_combined == "HEA")
     {
@@ -1425,7 +1465,7 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
         {
             curve = 0.30;
             power = 1.11;
-            qe_bias = -38.0;
+            qe_bias = -30.0;   // tuned: was -38.0, real fire Bateria Bravo showed +8.7 TIME REG
             tof_scale = 252.0;
             tof_bias = -1.20;
         }
@@ -1474,6 +1514,619 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
     // Replace FT values with HP-71B calibrated values
     qe = hp71_qe;
     tof = hp71_tof;
+}
+
+//////////////////////////////////////////////////
+// STANAG 4355 BALLISTIC MODEL (MPM)
+// Numerical trajectory integration using G1 drag curve
+// cd0=0.157 calibrated against Argentine real fire (BATERIA BRAVO 155mm 1BAC)
+// FT155-AM-2 is for US guns (M109/M198/M777, L39-40), NOT CITER L33
+//////////////////////////////////////////////////
+
+namespace Stanag4355 {
+
+    // =============================================
+    // G1 STANDARD PROJECTILE DRAG CURVE
+    // Cd vs Mach number (from McCoy / STANAG)
+    // =============================================
+    static const int G1_N = 25;
+    static const double G1_M[G1_N] = {
+        0.00, 0.20, 0.40, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95,
+        1.00, 1.05, 1.10, 1.15, 1.20, 1.30, 1.40, 1.50, 1.60,
+        1.70, 1.80, 1.90, 2.00, 2.20, 2.50, 3.00
+    };
+    static const double G1_Cd[G1_N] = {
+        0.2300, 0.2300, 0.2300, 0.2350, 0.2500, 0.2800, 0.3100, 0.3500, 0.4000,
+        0.4500, 0.4700, 0.4700, 0.4600, 0.4500, 0.4300, 0.4100, 0.3900, 0.3750,
+        0.3600, 0.3500, 0.3400, 0.3300, 0.3150, 0.3000, 0.2600
+    };
+    static const double G1_CD0_REF = 0.2300;  // Cd at M=0 for G1 standard
+
+    // Interpolate G1 drag curve
+    static double g1_cd(double mach)
+    {
+        if(mach <= G1_M[0]) return G1_Cd[0];
+        if(mach >= G1_M[G1_N-1]) return G1_Cd[G1_N-1];
+
+        for(int i = 0; i < G1_N - 1; i++)
+        {
+            if(mach >= G1_M[i] && mach <= G1_M[i+1])
+            {
+                double t = (mach - G1_M[i]) / (G1_M[i+1] - G1_M[i]);
+                return G1_Cd[i] + t * (G1_Cd[i+1] - G1_Cd[i]);
+            }
+        }
+        return G1_Cd[G1_N-1];
+    }
+
+    // =============================================
+    // STANDARD ATMOSPHERE (STANAG 4355)
+    // Troposphere only (0-11000m)
+    // =============================================
+    struct AtmoState {
+        double T;      // Temperature (K)
+        double P;      // Pressure (Pa)
+        double rho;    // Density (kg/m³)
+        double a;      // Speed of sound (m/s)
+    };
+
+    static AtmoState atmosphere(double h_m)
+    {
+        const double T0 = 288.15;      // Sea level temp (K)
+        const double P0 = 101325.0;    // Sea level pressure (Pa)
+        const double L  = 0.0065;      // Temperature lapse rate (K/m)
+        const double R  = 287.05;      // Gas constant J/(kg·K)
+        const double g  = 9.80665;     // Gravity (m/s²)
+        const double gamma = 1.4;      // Cp/Cv for air
+
+        double h = (h_m < 0) ? 0 : h_m;
+        if(h > 11000.0) h = 11000.0;
+
+        AtmoState s;
+        s.T   = T0 - L * h;
+        s.P   = P0 * pow(s.T / T0, g / (R * L));
+        s.rho = s.P / (R * s.T);
+        s.a   = sqrt(gamma * R * s.T);
+        return s;
+    }
+
+    // =============================================
+    // PROJECTILE DATA: M107 155mm
+    // =============================================
+    struct Projectile155 {
+        double mass;      // kg
+        double caliber;   // m
+        double area;      // reference area (m²)
+        double v0;        // muzzle velocity (m/s)
+        double cd0;       // drag factor (from STANAG validation)
+    };
+
+    // =============================================
+    // CONFIGURABLE PARAMETERS (set via CD0= V0= commands)
+    //
+    // MODEL: CITER 155mm L33 Modelo 77/81 (Argentine gun)
+    //         derived from French SOFMA/AMX MK F3
+    // PROJ:  M107 HE (43 kg, NATO standard 155mm)
+    //
+    // cd0=0.157 calibrated against Argentine real fire:
+    //   BATERIA BRAVO 155mm 1BAC, QE=428.9 mils @ 10,458m, CHG=6W
+    //   (FT 155-AM-2 is for US guns M109/M198/M777, NOT CITER L33)
+    // =============================================
+    static double cfg_cd0 = 0.157;    // cd0 calibrated for CITER L33 + M107
+    static std::map<std::string, double> cfg_v0;  // per-charge v0 overrides
+
+    static Projectile155 default_m107()
+    {
+        Projectile155 p;
+        p.mass    = 43.2;              // M107 HE 155mm (NATO standard)
+        p.caliber = 0.155;
+        p.area    = 3.14159265 * pow(p.caliber / 2.0, 2);  // 0.01887 m²
+        p.v0      = 827.0;             // M107 standard muzzle velocity (Charge 8 super)
+        p.cd0     = cfg_cd0;           // configurable, default 0.157 for CITER L33
+        return p;
+    }
+
+    // =============================================
+    // CHARGE → MUZZLE VELOCITY TABLE
+    //
+    // V0 values calibrated for CITER 155mm L33:
+    //   - 6W=495 m/s: calibrated from Argentine real fire data
+    //     (FT baseline=472, real fire v0=495 matches QE=428.9)
+    //   - Other charges: FT 155-AM-2 values (US M777 baseline)
+    //     NOTE: CITER L33 may have different v0 per charge
+    //           need more real fire data to calibrate all charges
+    //
+    // M4A2 propelling charges
+    // =============================================
+    static double charge_to_v0(const std::string& chg)
+    {
+        // Check for user override first
+        auto it = cfg_v0.find(chg);
+        if(it != cfg_v0.end()) return it->second;
+
+        // M4A2 Green Bag (G) charges — M777
+        if(chg == "3G") return 279.0;
+        if(chg == "4G") return 320.0;
+        if(chg == "5G") return 382.0;
+
+        // M4A2 White Bag (W) charges — M777 FT values
+        // 6W calibrated: v0=495 matches Argentine real fire data (FT baseline=472)
+        if(chg == "3W") return 292.0;
+        if(chg == "4W") return 334.0;
+        if(chg == "5W") return 389.0;
+        if(chg == "6W") return 495.0;
+        if(chg == "7W") return 565.0;
+
+        // M119A1 red bag (R) — extended range
+        if(chg == "7R") return 689.0;
+
+        // Charge 8 super (M119A2 / M203) — full charge
+        if(chg == "8S") return 827.0;
+
+        // Parse numeric-only charges (e.g. "6" → treat as 6W)
+        int num = 0;
+        for(char c : chg) { if(std::isdigit(c)) num = num * 10 + (c - '0'); }
+        if(num >= 3 && num <= 7) return charge_to_v0(std::to_string(num) + "W");
+
+        // Default: full charge
+        return 827.0;
+    }
+
+    // Get charge name for display
+    static const char* charge_name(double v0)
+    {
+        if(v0 <= 280) return "3G";
+        if(v0 <= 325) return "4G";
+        if(v0 <= 385) return "5G";
+        if(v0 <= 295) return "3W";
+        if(v0 <= 340) return "4W";
+        if(v0 <= 395) return "5W";
+        if(v0 <= 478) return "6W";
+        if(v0 <= 570) return "7W";
+        if(v0 <= 695) return "7R";
+        return "8S";
+    }
+
+    // =============================================
+    // TRAJECTORY STATE
+    // =============================================
+    struct State {
+        double x;       // horizontal (m)
+        double y;       // vertical (m)
+        double vx;      // horizontal velocity (m/s)
+        double vy;      // vertical velocity (m/s)
+    };
+
+    // =============================================
+    // EQUATIONS OF MOTION (2D, no spin, no Coriolis)
+    // =============================================
+    static State derivatives(const State& s, const Projectile155& proj)
+    {
+        AtmoState atmo = atmosphere(s.y);
+        double v = sqrt(s.vx * s.vx + s.vy * s.vy);
+
+        State ds;
+        ds.x = s.vx;
+        ds.y = s.vy;
+
+        if(v < 0.01)
+        {
+            ds.vx = 0;
+            ds.vy = -9.80665;
+            return ds;
+        }
+
+        double mach = v / atmo.a;
+        double cd_g1 = g1_cd(mach);
+        double cd = proj.cd0 * (cd_g1 / G1_CD0_REF);
+
+        // Drag force: Fd = 0.5 * rho * v² * Cd * A
+        double Fd = 0.5 * atmo.rho * v * v * cd * proj.area;
+
+        // Deceleration from drag
+        double a_drag = Fd / proj.mass;
+
+        ds.vx = -a_drag * (s.vx / v);
+        ds.vy = -9.80665 - a_drag * (s.vy / v);
+
+        return ds;
+    }
+
+    // =============================================
+    // RK4 INTEGRATION (single step)
+    // =============================================
+    static State rk4_step(const State& s, double dt, const Projectile155& proj)
+    {
+        State k1 = derivatives(s, proj);
+
+        State s2;
+        s2.x  = s.x  + 0.5 * dt * k1.x;
+        s2.y  = s.y  + 0.5 * dt * k1.y;
+        s2.vx = s.vx + 0.5 * dt * k1.vx;
+        s2.vy = s.vy + 0.5 * dt * k1.vy;
+        State k2 = derivatives(s2, proj);
+
+        State s3;
+        s3.x  = s.x  + 0.5 * dt * k2.x;
+        s3.y  = s.y  + 0.5 * dt * k2.y;
+        s3.vx = s.vx + 0.5 * dt * k2.vx;
+        s3.vy = s.vy + 0.5 * dt * k2.vy;
+        State k3 = derivatives(s3, proj);
+
+        State s4;
+        s4.x  = s.x  + dt * k3.x;
+        s4.y  = s.y  + dt * k3.y;
+        s4.vx = s.vx + dt * k3.vx;
+        s4.vy = s.vy + dt * k3.vy;
+        State k4 = derivatives(s4, proj);
+
+        State result;
+        result.x  = s.x  + dt * (k1.x  + 2*k2.x  + 2*k3.x  + k4.x)  / 6.0;
+        result.y  = s.y  + dt * (k1.y  + 2*k2.y  + 2*k3.y  + k4.y)  / 6.0;
+        result.vx = s.vx + dt * (k1.vx + 2*k2.vx + 2*k3.vx + k4.vx) / 6.0;
+        result.vy = s.vy + dt * (k1.vy + 2*k2.vy + 2*k3.vy + k4.vy) / 6.0;
+
+        return result;
+    }
+
+    // =============================================
+    // COMPUTE FULL TRAJECTORY
+    // Returns range (m) and TOF (s)
+    // =============================================
+    static void compute_trajectory(double theta_rad, const Projectile155& proj,
+                                    double& range, double& tof)
+    {
+        const double dt = 0.005;  // 5ms step for accuracy
+        const double g_elev = 0.0;  // gun elevation above ground (m)
+
+        State s;
+        s.x  = 0;
+        s.y  = g_elev;
+        s.vx = proj.v0 * cos(theta_rad);
+        s.vy = proj.v0 * sin(theta_rad);
+
+        tof = 0;
+        range = 0;
+
+        // Integrate until projectile hits ground (y < 0)
+        for(int i = 0; i < 200000; i++)  // safety limit: 1000s max
+        {
+            State next = rk4_step(s, dt, proj);
+
+            // Ground impact detection
+            if(next.y < 0 && s.y >= 0)
+            {
+                // Linear interpolation to find exact impact point
+                double frac = s.y / (s.y - next.y);
+                range = s.x + frac * (next.x - s.x);
+                tof = tof + frac * dt;
+                return;
+            }
+
+            s = next;
+            tof += dt;
+
+            // Safety: abort if going too far or too long
+            if(tof > 200.0 || s.x > 25000.0)
+            {
+                range = s.x;
+                return;
+            }
+        }
+
+        range = s.x;
+    }
+
+    // =============================================
+    // QE SOLVER: Find launch angle for given range
+    // Uses Brent's method (bracketed root finding)
+    // Returns QE in mils (HP-71B format)
+    // =============================================
+    static double solve_qe(double target_range_m, const Projectile155& proj,
+                           double& out_tof)
+    {
+        const double pi = 3.14159265;
+        const double DEG2RAD = pi / 180.0;
+        const double RAD2MILS = 6400.0 / (2.0 * pi);
+
+        // Phase 1: Scan to find max range and its angle (2° steps for speed)
+        double best_range = 0, best_angle_rad = 0.35;
+        double best_tof_scan = 0;
+        for(int deg = 1; deg <= 59; deg += 2)
+        {
+            double rad = deg * DEG2RAD;
+            double r, t;
+            compute_trajectory(rad, proj, r, t);
+            if(r > best_range)
+            {
+                best_range = r;
+                best_angle_rad = rad;
+                best_tof_scan = t;
+            }
+        }
+
+        // If target is beyond max range, return max range angle
+        if(target_range_m >= best_range)
+        {
+            out_tof = best_tof_scan;
+            return best_angle_rad * RAD2MILS;
+        }
+
+        // Phase 2: Binary search on the LOW side (ascending part of range curve)
+        // Range increases from 0° to best_angle_rad
+        double lo_rad = 0.001;  // nearly 0°
+        double hi_rad = best_angle_rad;
+
+        for(int iter = 0; iter < 25; iter++)
+        {
+            double mid_rad = (lo_rad + hi_rad) / 2.0;
+            double r_mid, t_mid;
+            compute_trajectory(mid_rad, proj, r_mid, t_mid);
+
+            if(r_mid < target_range_m)
+                lo_rad = mid_rad;
+            else
+                hi_rad = mid_rad;
+        }
+
+        double final_rad = (lo_rad + hi_rad) / 2.0;
+        double final_r, final_t;
+        compute_trajectory(final_rad, proj, final_r, final_t);
+
+        out_tof = final_t;
+        return final_rad * RAD2MILS;
+    }
+
+} // namespace Stanag4355
+
+//////////////////////////////////////////////////
+// STANAG COMPARISON HELPER
+// Runs both HP-71B and STANAG for same conditions
+//////////////////////////////////////////////////
+
+static std::string stanagCompare(int art_type, const std::string& proj, const std::string& lot,
+                                  const std::string& chg, double dist_m)
+{
+    std::stringstream out;
+
+    // === HP-71B RESULT (current calibrated) ===
+    double qe_hp71 = 0, tof_hp71 = 0;
+    {
+        // Run hp71bCalibrate with dummy values
+        double qe_tmp = 0, tof_tmp = 0;
+        int chg_num = 0;
+        for(char c : chg) { if(std::isdigit(c)) chg_num = chg_num * 10 + (c - '0'); }
+
+        // Quick HP-71B calc
+        const double base = 39.5, chg_scale = 13.2;
+        double km = dist_m / 1000.0;
+        double curve = 0.30, power = 1.11, qe_bias = -30.0;
+        qe_hp71 = ((base * km) + (curve * km * km) + (chg_num * chg_scale)) / power + qe_bias;
+        tof_hp71 = dist_m / (252.0 * power) + chg_num * 0.16 - 1.20;
+    }
+
+    // === STANAG 4355 RESULT ===
+    double qe_stanag = 0, tof_stanag = 0;
+    if(art_type == 155)
+    {
+        Stanag4355::Projectile155 proj_data = Stanag4355::default_m107();
+        proj_data.v0 = Stanag4355::charge_to_v0(chg);  // Scale v0 by charge
+
+        qe_stanag = Stanag4355::solve_qe(dist_m, proj_data, tof_stanag);
+    }
+
+    // === SPIN DRIFT (M107 155mm, right-hand twist) ===
+    // Formula: SD (mils) = K * range_km^2
+    // K ≈ 0.015 for M107 (from Firing Tables analysis)
+    // Drifts to the RIGHT of the line of fire
+    double range_km = dist_m / 1000.0;
+    double spin_drift = 0.015 * range_km * range_km;  // mils, right
+
+    // === CORIOLIS EFFECT ===
+    // Formula: C = ω_e * T * sin(lat) * cos(az) (simplified for east-west)
+    // ω_e = 7.2921e-5 rad/s (Earth rotation)
+    // For Argentina (lat ≈ -32°), this is ~2-5 mils at 10km
+    const double omega_e = 7.2921e-5;  // rad/s
+    const double lat_arg = -32.0 * 3.14159265 / 180.0;  // Buenos Aires, radians
+    // Coriolis deflection (mils) — depends on azimuth of fire
+    // Simplified: assume fire to the east (az=90°), max effect
+    double coriolis = omega_e * tof_stanag * std::sin(lat_arg) * dist_m / 100.0;
+    // Convert from meters to mils: deflection(mils) = deflection(m) * 6400 / range(m)
+    if(dist_m > 0) coriolis = coriolis * 6400.0 / dist_m;
+
+    // === FORMAT OUTPUT ===
+    out << "STANAG 4355 vs HP-71B\n";
+    out << "DIST: " << (int)dist_m << "m CHG: " << chg << "\n";
+    out << "HP-71B  QE=" << std::round(qe_hp71 * 10) / 10
+        << " TOF=" << std::round(tof_hp71 * 100) / 100 << "\n";
+    if(art_type == 155)
+    {
+        out << "STANAG QE=" << std::round(qe_stanag * 10) / 10
+            << " TOF=" << std::round(tof_stanag * 100) / 100 << "\n";
+        double diff = qe_hp71 - qe_stanag;
+        out << "DIFF   QE=" << std::round(diff * 10) / 10 << " mils\n";
+        out << "\nDeflection (STANAG):\n";
+        out << "  Spin:  " << std::round(spin_drift * 10) / 10 << " mils R\n";
+        out << "  Coriolis: " << std::round(coriolis * 10) / 10 << " mils\n";
+        out << "  Total: " << std::round((spin_drift + coriolis) * 10) / 10 << " mils\n";
+    }
+    else
+    {
+        out << "STANAG: solo 155mm por ahora\n";
+    }
+
+    return out.str();
+}
+
+//////////////////////////////////////////////////
+// STANAG CALIBRATION — tests cd0 values against FT data
+//////////////////////////////////////////////////
+
+static std::string stanagCalibrate()
+{
+    std::stringstream out;
+    out << "STANAG 4355 CALIBRATION v2\n";
+    out << "cd0 vs FT Excel (155 HEA)\n\n";
+
+    // Collect test points
+    struct TestPt { std::string chg; double v0; double dist; double qe_ft; bool is_G; };
+    std::vector<TestPt> pts;
+
+    std::map<std::string, double> v0map = {
+        {"3G",279},{"4G",320},{"5G",382},
+        {"3W",292},{"4W",334},{"5W",389},{"6W",495},{"7W",565}
+    };
+
+    for(const auto& kv : firingTables)
+    {
+        const AmmoKey& key = kv.first;
+        if(key.artillery != "155") continue;
+        if(key.proj.find("HEA") == std::string::npos) continue;
+
+        auto it = v0map.find(key.chg);
+        if(it == v0map.end()) continue;
+
+        const auto& rows = kv.second;
+        if(rows.size() < 4) continue;
+        double v0 = it->second;
+        bool is_G = (key.chg.find("G") != std::string::npos);
+
+        size_t n = rows.size();
+        for(double pct : {0.3, 0.5, 0.7, 0.9})
+        {
+            size_t idx = (size_t)(n * pct);
+            if(idx >= n) idx = n - 1;
+            pts.push_back({key.chg, v0, rows[idx].d, rows[idx].qe, is_G});
+        }
+    }
+
+    int n_G_total = 0, n_W_total = 0;
+    for(const auto& p : pts) { if(p.is_G) n_G_total++; else n_W_total++; }
+    out << "Test points: " << pts.size() << " (G:" << n_G_total << " W:" << n_W_total << ")\n\n";
+
+    // === PHASE 1: Single cd0 scan (RMSE + MINIMAX) ===
+    // Cache errors for split search
+    const int N_CD0 = 15;
+    const int N_PTS = (int)pts.size();
+    double cd0_vals[N_CD0];
+    double cached_err[N_CD0][96]; // max 96 points
+    int n_pts = N_PTS;
+    if(n_pts > 96) n_pts = 96;
+
+    out << "  cd0    RMSE   MAXERR   ABMEAN  RMSE_G  RMSE_W\n";
+    out << "------ ------ ------ -------- ------- -------\n";
+
+    double best_rmse_cd0 = 0.165, best_rmse_val = 1e9;
+    double best_mm_cd0 = 0.165, best_mm_val = 1e9;
+
+    int ci = 0;
+    for(int cd0_x1000 = 130; cd0_x1000 <= 200; cd0_x1000 += 5, ci++)
+    {
+        double cd0 = cd0_x1000 / 1000.0;
+        cd0_vals[ci] = cd0;
+        double sum_sq = 0, max_err = 0, sum_abs = 0;
+        double sum_sq_G = 0, sum_sq_W = 0;
+        int n_G = 0, n_W = 0;
+
+        for(int pi = 0; pi < n_pts; pi++)
+        {
+            const auto& pt = pts[pi];
+            Stanag4355::Projectile155 proj = Stanag4355::default_m107();
+            proj.v0 = pt.v0;
+            proj.cd0 = cd0;
+
+            double tof_unused = 0;
+            double qe_stanag = Stanag4355::solve_qe(pt.dist, proj, tof_unused);
+            double err = qe_stanag - pt.qe_ft;
+            cached_err[ci][pi] = err;
+
+            sum_sq += err * err;
+            sum_abs += std::abs(err);
+            if(std::abs(err) > max_err) max_err = std::abs(err);
+
+            if(pt.is_G) { sum_sq_G += err * err; n_G++; }
+            else        { sum_sq_W += err * err; n_W++; }
+        }
+
+        int n_total = n_G + n_W;
+        double rmse = std::sqrt(sum_sq / n_total);
+        double rmse_G = n_G > 0 ? std::sqrt(sum_sq_G / n_G) : 0;
+        double rmse_W = n_W > 0 ? std::sqrt(sum_sq_W / n_W) : 0;
+
+        if(rmse < best_rmse_val) { best_rmse_val = rmse; best_rmse_cd0 = cd0; }
+        if(max_err < best_mm_val) { best_mm_val = max_err; best_mm_cd0 = cd0; }
+
+        char buf[128];
+        sprintf(buf, "%6.3f %6.1f %6.1f %+7.1f %7.1f %7.1f",
+                cd0, rmse, max_err, sum_abs/n_total, rmse_G, rmse_W);
+        out << buf << "\n";
+    }
+
+    // === PHASE 2: Split G/W — using cached errors (no extra solve_qe!) ===
+    // Now do fine search around the best coarse values
+    // First find the best coarse G and W indices
+    int best_gi = 0, best_wi = 0;
+    double best_split_rmse = best_rmse_val;
+    for(int gi = 0; gi < ci; gi++)
+    {
+        for(int wi = 0; wi < ci; wi++)
+        {
+            double ss = 0;
+            for(int pi = 0; pi < n_pts; pi++)
+            {
+                double err = pts[pi].is_G ? cached_err[gi][pi] : cached_err[wi][pi];
+                ss += err * err;
+            }
+            double rmse_split = std::sqrt(ss / n_pts);
+            if(rmse_split < best_split_rmse) {
+                best_split_rmse = rmse_split;
+                best_gi = gi;
+                best_wi = wi;
+            }
+        }
+    }
+
+    // Fine search: ±1 step (0.001) around best coarse values — fast
+    double best_G = cd0_vals[best_gi], best_W = cd0_vals[best_wi];
+    for(int delta = -1; delta <= 1; delta++)
+    {
+        double cd0g = cd0_vals[best_gi] + delta * 0.001;
+        if(cd0g < 0.130 || cd0g > 0.200) continue;
+        for(int delta2 = -1; delta2 <= 1; delta2++)
+        {
+            double cd0w = cd0_vals[best_wi] + delta2 * 0.001;
+            if(cd0w < 0.130 || cd0w > 0.200) continue;
+
+            // Need to compute fresh — fine grid not in cache
+            double ss = 0;
+            for(int pi = 0; pi < n_pts; pi++)
+            {
+                Stanag4355::Projectile155 proj = Stanag4355::default_m107();
+                proj.v0 = pts[pi].v0;
+                proj.cd0 = pts[pi].is_G ? cd0g : cd0w;
+                double tof_u = 0;
+                double qe_s = Stanag4355::solve_qe(pts[pi].dist, proj, tof_u);
+                double err = qe_s - pts[pi].qe_ft;
+                ss += err * err;
+            }
+            double rmse_split = std::sqrt(ss / n_pts);
+            if(rmse_split < best_split_rmse) {
+                best_split_rmse = rmse_split;
+                best_G = cd0g;
+                best_W = cd0w;
+            }
+        }
+    }
+
+    out << "\n=== OPTIMAL cd0 ===\n";
+    out << "  RMSE:       " << std::fixed << std::setprecision(3) << best_rmse_cd0
+        << " (RMSE=" << std::setprecision(1) << best_rmse_val << ")\n";
+    out << "  MINIMAX:    " << best_mm_cd0
+        << " (maxerr=" << best_mm_val << ")\n";
+    out << "  SPLIT G/W:  G=" << best_G << " W=" << best_W
+        << " (RMSE=" << best_split_rmse << ")\n";
+
+    return out.str();
 }
 
 //////////////////////////////////////////////////
@@ -1638,17 +2291,10 @@ std::string BasicEngine::execute(const std::string& input)
         // 🔥 PRIMERO resolver balística
         bool solved = solve(ammo_proj_prop, ammo_proj_lot, dist, chg, qe, tof, drift);
 
-        // =====================================================
-        // HP-71B CALIBRATION: ajustar QE/TOF para 155mm
-        // Las tablas FT dan valores diferentes al HP-71B físico.
-        // Aplicamos calibración basada en las fórmulas originales
-        // del generar_tablas.py (commit 3ff1ecb)
-        // =====================================================
-        if(solved)
-        {
-            int art_num = (artillery_type == "155") ? 155 : 105;
-            hp71bCalibrate(art_num, ammo_proj_prop, ammo_proj_lot, chg, dist, qe, tof);
-        }
+        // ✅ CALIBRAR QE/TOF AL HP-71B FÍSICO
+        // La FT Excel del US Army difiere ~98 mils de la realidad.
+        // hp71bCalibrate() aplica la fórmula del equipo militar real.
+        hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg, dist, qe, tof);
         
         // ================================
         // 🔥 DRIFT: USAR DATOS FT REALES
@@ -1814,6 +2460,10 @@ std::string BasicEngine::execute(const std::string& input)
         double qe_tmp = 0, tof_tmp = 0, drift_tmp = 0;
 
         bool solved_ref = solve(ammo_proj_prop, ammo_proj_lot, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
+
+        // ✅ CALIBRAR QE/TOF AL HP-71B FÍSICO (misma calibración que la ruta principal)
+        if(solved_ref)
+            hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg_tmp, dist, qe_tmp, tof_tmp);
 
         if(std::abs(drift_tmp) < 0.001)
         {
@@ -3113,6 +3763,97 @@ if(current_menu=="MAP_MODEL")
             manual_chg_value = "";
 
             return "AUTO CHARGE ENABLED\nFM (? 1 2 3 4 S P X *)";
+        }
+
+        // 🔥 STANAG CONFIG: CD0=value
+        if(cmd.size() > 4 && cmd.substr(0, 4) == "CD0=")
+        {
+            try {
+                double val = std::stod(cmd.substr(4));
+                if(val < 0.05 || val > 0.50)
+                    return "CD0 out of range [0.05-0.50]\nFM (? 1 2 3 4 S P X *)";
+                Stanag4355::cfg_cd0 = val;
+                std::stringstream ss;
+                // BC in lb/in²: mass_lb / (i * d_in²), i = cd0/G1_CD0_REF
+                double mass_lb = 43.2 * 2.20462;
+                double d_in = 0.155 * 39.3701;
+                double i_form = val / 0.230;
+                double bc = mass_lb / (i_form * d_in * d_in);
+                ss << "CD0=" << std::fixed << std::setprecision(4) << val
+                   << " (BC=" << std::setprecision(2) << bc << " lb/in2)\n";
+                ss << "FM (? 1 2 3 4 S P X *)";
+                return ss.str();
+            } catch(...) {
+                return "CD0: invalid value\nFM (? 1 2 3 4 S P X *)";
+            }
+        }
+
+        // 🔥 STANAG CONFIG: V0_CHG=value (e.g. V0_6W=500)
+        if(cmd.size() > 3 && cmd.substr(0, 3) == "V0_")
+        {
+            size_t eq = cmd.find('=');
+            if(eq == std::string::npos)
+                return "V0 syntax: V0_6W=500\nFM (? 1 2 3 4 S P X *)";
+            try {
+                std::string chg = cmd.substr(3, eq - 3);
+                double val = std::stod(cmd.substr(eq + 1));
+                if(val < 100 || val > 1200)
+                    return "V0 out of range [100-1200]\nFM (? 1 2 3 4 S P X *)";
+                Stanag4355::cfg_v0[chg] = val;
+                std::stringstream ss;
+                ss << "V0_" << chg << "=" << std::fixed << std::setprecision(1) << val << " m/s\n";
+                ss << "FM (? 1 2 3 4 S P X *)";
+                return ss.str();
+            } catch(...) {
+                return "V0: invalid value\nFM (? 1 2 3 4 S P X *)";
+            }
+        }
+
+        // 🔥 STANAG CONFIG: SHOW (show current config)
+        if(cmd == "SHOW")
+        {
+            std::stringstream ss;
+            ss << "STANAG Config:\n";
+            ss << "  CD0=" << std::fixed << std::setprecision(4) << Stanag4355::cfg_cd0 << "\n";
+            if(Stanag4355::cfg_v0.empty()) {
+                ss << "  V0: (all defaults)\n";
+            } else {
+                for(const auto& kv : Stanag4355::cfg_v0) {
+                    ss << "  V0_" << kv.first << "=" << std::setprecision(1) << kv.second << "\n";
+                }
+            }
+            ss << "FM (? 1 2 3 4 S P X *)";
+            return ss.str();
+        }
+
+        // 🔥 STANAG 4355 COMPARISON
+        if(cmd=="STANAG")
+        {
+            if(ammo_proj_prop.empty() || guns.empty() || (tgt_e == 0 && tgt_n == 0))
+                return "NEED COB + AMMO + TARGET first\nFM (? 1 2 3 4 S P X *)";
+
+            // Calculate distance from base piece to target
+            int bp = base_piece_index;
+            double dx = tgt_e - guns[bp].e;
+            double dy = tgt_n - guns[bp].n;
+            double dist_calc = std::sqrt(dx*dx + dy*dy);
+
+            // Resolve charge first
+            std::string chg_resolved = "";
+            double qe_r, tof_r, drift_r;
+            solve(ammo_proj_prop, ammo_proj_lot, dist_calc, chg_resolved, qe_r, tof_r, drift_r);
+
+            if(chg_resolved.empty())
+                return "SOLVER: NO DATA for this range\nFM (? 1 2 3 4 S P X *)";
+
+            return stanagCompare(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot,
+                                 chg_resolved, dist_calc) + "\nFM (? 1 2 3 4 S P X *)";
+        }
+
+        // 🔥 STANAG CALIBRATION (tests cd0 vs FT data)
+        if(cmd=="STANAG_CAL")
+        {
+            return stanagCalibrate() + "\nFM (? 1 2 3 4 S P X *)";
         }
 
         if(cmd=="1")
