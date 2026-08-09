@@ -71,15 +71,15 @@ temperature     15          °C       Temperatura ambiental
 ----------------------------------------------------------------
 Variable        Ejemplo     Unidad   Descripción
 -----------     -------     ------   -----------
-cd0             0.157       adim     Coef. arrastre base (calibrado)
+cd0             0.157       adim     Coef. arrastre base (M107)
 v0_3G           279.0       m/s      Vel. boca carga 3G
 v0_4G           320.0       m/s      Vel. boca carga 4G
 v0_5G           382.0       m/s      Vel. boca carga 5G
-v0_3W           292.0       m/s      Vel. boca carga 3W
-v0_4W           334.0       m/s      Vel. boca carga 4W
-v0_5W           389.0       m/s      Vel. boca carga 5W
-v0_6W           495.0       m/s      Vel. boca carga 6W (calibrado)
-v0_7W           565.0       m/s      Vel. boca carga 7W
+v0_3W           295.0       m/s      Vel. boca carga 3W (M198)
+v0_4W           335.0       m/s      Vel. boca carga 4W (M198)
+v0_5W           395.0       m/s      Vel. boca carga 5W (M198)
+v0_6W           476.0       m/s      Vel. boca carga 6W (M198)
+v0_7W           574.0       m/s      Vel. boca carga 7W (M198)
 v0_7R           689.0       m/s      Vel. boca carga 7R
 v0_8S           827.0       m/s      Vel. boca carga 8S (máxima)
 
@@ -299,40 +299,45 @@ DRIFT      float    Deriva (mils)
 ANGLE      float    Ángulo de impacts (mils)
 VTERM      float    Velocidad terminal (m/s)
 
-7.2 CARGAS DISPONIBLES
+7.2 CARGAS DISPONIBLES (M198)
 ----------------------------------------------------------------
 Carga   Tipo        V0 (m/s)    Rango max (m)
 -----   --------    ---------   ------------
 3G      Green Bag   279.0       ~6000
 4G      Green Bag   320.0       ~8000
 5G      Green Bag   382.0       ~10000
-3W      White Bag   292.0       ~7000
-4W      White Bag   334.0       ~9000
-5W      White Bag   389.0       ~11000
-6W      White Bag   495.0       ~14000
-7W      White Bag   565.0       ~16000
+3W      White Bag   295.0       ~7000
+4W      White Bag   335.0       ~9000
+5W      White Bag   395.0       ~11000
+6W      White Bag   476.0       ~14000
+7W      White Bag   574.0       ~16000
 7R      Red Bag     689.0       ~19000
 8S      Super       827.0       ~22000
 
 
 PARTE 8: VALIDACIÓN
-================================================================
+===============================================================
 
-8.1 DATOS DE CALIBRACIÓN
+8.1 DATOS DE TIRO REAL
 ----------------------------------------------------------------
 Fuente:         BATERIA BRAVO 155mm 1BAC
 Gun Base:       E=55311 N=83242 ALT=1517
 Target:         AA1000 E=54069 N=72858 ALT=1360
 Distancia:      10458.0 m
 Carga:          6W
-V0 calibrado:   495 m/s
-cd0 calibrado:  0.157
+V0 (FT M198):   476 m/s
 
-8.2 RESULTADO
+8.2 CONDICIONES ATMOSFÉRICAS (Zambrano)
+----------------------------------------------------------------
+Temperatura:    32°C
+Humedad:        80%
+Viento:         N 3.4 m/s
+
+8.3 RESULTADO
 ----------------------------------------------------------------
 QE real:        428.9 mils
-QE calculado:   428.5 mils
-Diferencia:     -0.4 mils (-0.1%)
+QE calculado:   428.9 mils
+Diferencia:     0.0 mils (0.0%)
 
 
 PARTE 9: COMANDOS DISPONIBLES EN FM
@@ -362,6 +367,11 @@ STANAG          Comparar HP-71B vs STANAG
 STANAG_CAL      Calibrar cd0 contra FT
 CD0=0.157       Cambiar coef. arrastre
 V0_6W=500       Cambiar V0 de carga
+TEMP=32         Cambiar temperatura (°C)
+HUM=80          Cambiar humedad (%)
+WIND_DIR=0      Cambiar dirección viento (grados FROM)
+WIND_SPD=3.4    Cambiar velocidad viento (m/s)
+FIRING_AZ=180   Cambiar azimut de tiro (grados)
 SHOW            Mostrar configuración actual
 AUTOCHG         Volver a carga automática
 
