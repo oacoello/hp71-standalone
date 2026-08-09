@@ -1,6 +1,6 @@
 """
 Validate STANAG 4355 against FT 155-AM-2 (M107 HE)
-Using G1 drag curve with fixed cd0 (calibrated from Argentine real fire)
+Using G1 drag curve with fixed cd0 for M107 projectile
 """
 
 import csv
@@ -20,16 +20,16 @@ M109_V0 = {
     '8':  682.0,  # M119A1 charge 8
 }
 
-# Our calibrated v0 (from Argentine real fire)
+# Our v0 values (from FT 155-AM-2 C-5 for M198)
 OUR_V0 = {
     '3G': 279.0,
     '4G': 320.0,
     '5G': 382.0,
-    '3W': 292.0,
-    '4W': 334.0,
-    '5W': 389.0,
-    '6W': 495.0,  # Calibrated from real fire
-    '7W': 565.0,
+    '3W': 295.0,
+    '4W': 335.0,
+    '5W': 395.0,
+    '6W': 476.0,  # M198 FT value
+    '7W': 574.0,
     '8':  827.0,
 }
 

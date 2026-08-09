@@ -1,6 +1,6 @@
 # HP-71B Artillery Fire Control Emulator
 
-Emulador del calculador balístico HP-71B para control de fuego de artillería, con modelo balístico STANAG 4355 calibrado para el Ejército de Honduras.
+Emulador del calculador balístico HP-71B para control de fuego de artillería, con modelo balístico STANAG 4355 para el Ejército de Honduras.
 
 ## Características
 
@@ -35,18 +35,10 @@ hp71-standalone/
 - Tabla de arrastre G1: 11 puntos (Mach 0.0 - 3.0)
 
 ### Cargas M198 (FT 155-AM-2 C-5)
-| Carga | Tipo | V0 (m/s) | Alcance máx |
-|-------|------|----------|-------------|
-| 3G | Green Bag | 279 | ~6 km |
-| 4G | Green Bag | 320 | ~8 km |
-| 5G | Green Bag | 382 | ~10 km |
-| 3W | White Bag | 295 | ~7 km |
-| 4W | White Bag | 335 | ~9 km |
-| 5W | White Bag | 395 | ~11 km |
-| 6W | White Bag | 476 | ~14 km |
-| 7W | White Bag | 574 | ~16 km |
-| 7R | Red Bag | 689 | ~19 km |
-| 8S | Super | 827 | ~22 km |
+- Green Bag: 3G, 4G, 5G
+- White Bag: 3W, 4W, 5W, 6W, 7W
+- Red Bag: 7R
+- Super: 8S
 
 ### Atmósfera
 - Modelo ISA con corrección por temperatura (TEMP=)
@@ -85,47 +77,26 @@ curl -X POST "http://127.0.0.1:8080/input?cmd=RUNBUCS"
 
 # Ingresar MAP MODEL
 curl -X POST "http://127.0.0.1:8080/input?cmd=7"
-curl -X POST "http://127.0.0.1:8080/input?cmd=473000"  # MAX E
-curl -X POST "http://127.0.0.1:8080/input?cmd=447000"  # MIN E
-curl -X POST "http://127.0.0.1:8080/input?cmd=1584000" # MAX N
-curl -X POST "http://127.0.0.1:8080/input?cmd=1567000" # MIN N
-curl -X POST "http://127.0.0.1:8080/input?cmd=16"      # GZ
-curl -X POST "http://127.0.0.1:8080/input?cmd=1"       # SPHER
+curl -X POST "http://127.0.0.1:8080/input?cmd=<MAX_E>"
+curl -X POST "http://127.0.0.1:8080/input?cmd=<MIN_E>"
+curl -X POST "http://127.0.0.1:8080/input?cmd=<MAX_N>"
+curl -X POST "http://127.0.0.1:8080/input?cmd=<MIN_N>"
+curl -X POST "http://127.0.0.1:8080/input?cmd=<GZ>"
+curl -X POST "http://127.0.0.1:8080/input?cmd=1"
 ```
 
 ### Auto-detección de ubicación
-Al ingresar MAP MODEL, el sistema detecta automáticamente la zona y asigna condiciones atmosféricas:
-
-| Zona | Coordenadas UTM | TEMP | HR | Viento |
-|------|-----------------|------|-----|--------|
-| ZAMBRANO | E=456854 N=1577256 | 32°C | 80% | N 3.4 m/s |
-| PINALEJO | E=383483 N=1649393 | 25°C | 85% | N 3.0 m/s |
-| TRINCHERAS | E=479843 N=1470565 | 34°C | 65% | S 3.0 m/s |
+Al ingresar MAP MODEL, el sistema detecta automáticamente la zona y asigna condiciones atmosféricas predefinidas.
 
 ### Comandos FM
 | Comando | Descripción |
 |---------|-------------|
-| `TEMP=32` | Temperatura en °C |
-| `HUM=80` | Humedad relativa en % |
-| `WIND_DIR=0` | Dirección del viento (grados FROM) |
-| `WIND_SPD=3.4` | Velocidad del viento (m/s) |
-| `FIRING_AZ=180` | Azimut de tiro (grados) |
+| `TEMP=` | Temperatura en °C |
+| `HUM=` | Humedad relativa en % |
+| `WIND_DIR=` | Dirección del viento (grados FROM) |
+| `WIND_SPD=` | Velocidad del viento (m/s) |
+| `FIRING_AZ=` | Azimut de tiro (grados) |
 | `SHOW` | Mostrar configuración actual |
-
-## Validación
-
-### Tiro real - Batería Bravo 155mm
-- **Ubicación:** Zambrano, Honduras
-- **Gun Base:** E=55311 N=83242 ALT=1517
-- **Target:** AA1000 E=54069 N=72858 ALT=1360
-- **Distancia:** 10,458 m
-- **Carga:** 6W (V0=476 m/s)
-- **Condiciones:** 32°C, 80% HR, viento N 3.4 m/s
-
-### Resultado
-- QE real: 428.9 mils
-- QE calculado: 428.9 mils
-- **Error: 0.0 mils (0.0%)**
 
 ## Documentación
 
