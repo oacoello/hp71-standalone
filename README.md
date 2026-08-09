@@ -1,14 +1,21 @@
-# HP-71B Artillery Fire Control Emulator
+# Santa Barbara - Calculadora de Tiro
 
-Emulador del calculador balístico HP-71B para control de fuego de artillería, con modelo balístico STANAG 4355 para el Ejército de Honduras.
+Calculadora de Tiro para control de fuego de artillería, con modelo balístico STANAG 4355 para el Ejército de Honduras.
+
+## Descripción
+
+Santa Barbara es un sistema de cálculo balístico que utiliza tablas de tiro oficiales (Firing Tables) y el modelo STANAG 4355 para calcular ángulos de tiro, tiempos de vuelo y correcciones para artillería terrestre.
+
+El sistema está diseñado para el M198 (L/39, obús remolcado de 155mm) y utiliza datos atmosféricos configurables para ajustar los cálculos a las condiciones locales.
 
 ## Características
 
 - **Modelo balístico STANAG 4355** con tabla de arrastre M107
+- **Firing Tables oficiales** FT 155-AM-2 C-5 y FT 105-AM-2
 - **Atmósfera configurable** con corrección por temperatura y humedad
 - **Modelo de viento** 2D con componente axial
 - **Auto-detección de ubicación** desde coordenadas MAP MODEL
-- **Firing Tables reales** de FT 155-AM-2 C-5
+- **Interfaz HTTP** para integración con sistemas externos
 
 ## Arquitectura
 
@@ -20,18 +27,26 @@ hp71-standalone/
 │   └── ballistic_engine.h # Ecuaciones de movimiento
 ├── hp71_server/          # Servidor HTTP
 │   └── main.cpp          # Servidor
-├── tables/               # Firing Tables CSV
-│   └── tables.csv        # FT M107
+├── tables/               # Firing Tables oficiales
+│   ├── tables.csv        # FT 155mm (M107)
+│   └── 105_table.csv     # FT 105mm
 └── web_ui/               # Interfaz web
 ```
 
 ## Modelo Balístico
 
-### Proyectil M107 (155mm)
-- Masa: 43.2 kg
-- Calibre: 155mm
-- Área: 0.01887 m²
-- Tabla de arrastre G1: 11 puntos (Mach 0.0 - 3.0)
+### Tablas de Tiro (Firing Tables)
+El sistema utiliza tablas de tiro oficiales del ejército:
+- **FT 155-AM-2 C-5**: Tablas para obuses de 155mm (M109, M198, M777)
+- **FT 105-AM-2**: Tablas para obuses de 105mm (M102)
+
+Estas tablas contienen ángulos de tiro (QE), tiempos de vuelo, deriva y ángulos de impacto para diferentes distancias y cargas.
+
+### Modelo STANAG 4355
+El modelo STANAG 4355 utiliza:
+- Tabla de arrastre G1 para el proyectil M107
+- Ecuaciones de movimiento 2D con componente de viento
+- Correcciones atmosféricas por temperatura y humedad
 
 ### Atmósfera
 - Modelo ISA con corrección por temperatura (TEMP=)
