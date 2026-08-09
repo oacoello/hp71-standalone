@@ -28,8 +28,7 @@ hp71-standalone/
 ├── hp71_server/          # Servidor HTTP
 │   └── main.cpp          # Servidor
 ├── tables/               # Firing Tables oficiales
-│   ├── tables.csv        # FT 155mm (M107)
-│   └── 105_table.csv     # FT 105mm
+│   └── tables.csv        # FT 155mm y 105mm
 └── web_ui/               # Interfaz web
 ```
 
