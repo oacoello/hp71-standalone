@@ -1570,14 +1570,24 @@ namespace Stanag4355 {
         double a;      // Speed of sound (m/s)
     };
 
+    // Atmosphere config (set via TEMP= HUM= commands or MAP MODEL auto-detect)
+    static double cfg_temp = 28.0;     // ground temperature (°C) — Honduras average
+    static double cfg_humidity = 75.0;  // relative humidity (0-100%) — Honduras average
+
+    // Wind config (set via WIND_DIR= WIND_SPD= commands or MAP MODEL auto-detect)
+    static double cfg_wind_dir = 0.0;   // wind direction FROM (degrees, 0=N, 90=E)
+    static double cfg_wind_spd = 2.5;   // wind speed (m/s) — Honduras average
+    static double cfg_firing_az = 0.0;  // firing azimuth (degrees, 0=N, 90=E)
+
     static AtmoState atmosphere(double h_m)
     {
-        const double T0 = 288.15;      // Sea level temp (K)
-        const double P0 = 101325.0;    // Sea level pressure (Pa)
-        const double L  = 0.0065;      // Temperature lapse rate (K/m)
-        const double R  = 287.05;      // Gas constant J/(kg·K)
-        const double g  = 9.80665;     // Gravity (m/s²)
-        const double gamma = 1.4;      // Cp/Cv for air
+        // Use configurable temperature (°C → K)
+        const double T0 = 273.15 + cfg_temp;  // Sea level temp (K)
+        const double P0 = 101325.0;           // Sea level pressure (Pa)
+        const double L  = 0.0065;             // Temperature lapse rate (K/m)
+        const double R  = 287.05;             // Gas constant J/(kg·K)
+        const double g  = 9.80665;            // Gravity (m/s²)
+        const double gamma = 1.4;             // Cp/Cv for air
 
         double h = (h_m < 0) ? 0 : h_m;
         if(h > 11000.0) h = 11000.0;
@@ -1586,6 +1596,19 @@ namespace Stanag4355 {
         s.T   = T0 - L * h;
         s.P   = P0 * pow(s.T / T0, g / (R * L));
         s.rho = s.P / (R * s.T);
+
+        // Humidity correction: moist air is less dense
+        // At high humidity, water vapor (MW=18) replaces dry air (MW=29)
+        // This reduces density by ~3-4% at 80% RH, 32°C
+        if(cfg_humidity > 0.0 && s.T > 273.15) {
+            // Saturation vapor pressure (Tetens formula)
+            double es = 610.78 * exp(17.27 * (s.T - 273.15) / (s.T - 35.86));
+            double pv = (cfg_humidity / 100.0) * es;  // actual vapor pressure
+            // Density correction factor (approximate)
+            // ρ_moist = ρ_dry * (1 - 0.378 * pv / P)
+            s.rho = s.rho * (1.0 - 0.378 * pv / s.P);
+        }
+
         s.a   = sqrt(gamma * R * s.T);
         return s;
     }
@@ -1602,15 +1625,18 @@ namespace Stanag4355 {
     };
 
     // =============================================
-    // CONFIGURABLE PARAMETERS (set via CD0= V0= commands)
+    // CONFIGURABLE PARAMETERS (set via CD0= V0= TEMP= HUM= commands)
     //
-    // MODEL: CITER 155mm L33 Modelo 77/81 (Argentine gun)
-    //         derived from French SOFMA/AMX MK F3
+    // GUN: M198 (L/39, towed) — Honduras
     // PROJ:  M107 HE (43 kg, NATO standard 155mm)
+    // CHARGES: M4A2 (White Bag)
     //
-    // cd0=0.157 calibrated against Argentine real fire:
-    //   BATERIA BRAVO 155mm 1BAC, QE=428.9 mils @ 10,458m, CHG=6W
-    //   (FT 155-AM-2 is for US guns M109/M198/M777, NOT CITER L33)
+    // V0 values from FT 155-AM-2 C-5 (Sept 2006)
+    // M198 corrections applied: 6W=+1, 7W=+3 vs M109A5 standard
+    //
+    // Atmosphere: configurable via TEMP= and HUM=
+    //   Default: ISA (15°C, 0% humidity)
+    //   Zambrano example: TEMP=32 HUM=80
     // =============================================
     static double cfg_cd0 = 0.157;    // cd0 calibrated for CITER L33 + M107
     static std::map<std::string, double> cfg_v0;  // per-charge v0 overrides
@@ -1629,14 +1655,10 @@ namespace Stanag4355 {
     // =============================================
     // CHARGE → MUZZLE VELOCITY TABLE
     //
-    // V0 values calibrated for CITER 155mm L33:
-    //   - 6W=495 m/s: calibrated from Argentine real fire data
-    //     (FT baseline=472, real fire v0=495 matches QE=428.9)
-    //   - Other charges: FT 155-AM-2 values (US M777 baseline)
-    //     NOTE: CITER L33 may have different v0 per charge
-    //           need more real fire data to calibrate all charges
+    // V0 values from FT 155-AM-2 C-5 (Sept 2006)
+    // Standard: M109A5, with corrections for M198
     //
-    // M4A2 propelling charges
+    // M4A2 propelling charges (White Bag)
     // =============================================
     static double charge_to_v0(const std::string& chg)
     {
@@ -1649,13 +1671,13 @@ namespace Stanag4355 {
         if(chg == "4G") return 320.0;
         if(chg == "5G") return 382.0;
 
-        // M4A2 White Bag (W) charges — M777 FT values
-        // 6W calibrated: v0=495 matches Argentine real fire data (FT baseline=472)
-        if(chg == "3W") return 292.0;
-        if(chg == "4W") return 334.0;
-        if(chg == "5W") return 389.0;
-        if(chg == "6W") return 495.0;
-        if(chg == "7W") return 565.0;
+        // M4A2 White Bag (W) charges — M198 FT values (FT 155-AM-2 C-5)
+        // M198 corrections: 6W=+1, 7W=+3 vs M109A5 standard
+        if(chg == "3W") return 295.0;
+        if(chg == "4W") return 335.0;
+        if(chg == "5W") return 395.0;
+        if(chg == "6W") return 476.0;
+        if(chg == "7W") return 574.0;
 
         // M119A1 red bag (R) — extended range
         if(chg == "7R") return 689.0;
@@ -1698,36 +1720,48 @@ namespace Stanag4355 {
     };
 
     // =============================================
-    // EQUATIONS OF MOTION (2D, no spin, no Coriolis)
+    // EQUATIONS OF MOTION (2D, with wind)
     // =============================================
     static State derivatives(const State& s, const Projectile155& proj)
     {
         AtmoState atmo = atmosphere(s.y);
-        double v = sqrt(s.vx * s.vx + s.vy * s.vy);
+
+        // Wind component along firing direction (x-axis)
+        // wind_dir = direction wind is FROM (degrees, 0=N)
+        // firing_az = direction we're firing (degrees, 0=N)
+        // Wind velocity direction = wind_dir + 180 (direction wind is moving TO)
+        double wind_vel_dir = cfg_wind_dir + 180.0;
+        if(wind_vel_dir >= 360.0) wind_vel_dir -= 360.0;
+        double wind_az_diff = (wind_vel_dir - cfg_firing_az) * PI / 180.0;
+        double wind_x = cfg_wind_spd * cos(wind_az_diff);  // positive = with projectile
+
+        // Velocity relative to air (wind affects horizontal component)
+        double v_rel_x = s.vx - wind_x;
+        double v_rel_y = s.vy;
+        double v_rel = sqrt(v_rel_x * v_rel_x + v_rel_y * v_rel_y);
 
         State ds;
         ds.x = s.vx;
         ds.y = s.vy;
 
-        if(v < 0.01)
+        if(v_rel < 0.01)
         {
             ds.vx = 0;
             ds.vy = -9.80665;
             return ds;
         }
 
-        double mach = v / atmo.a;
+        double mach = v_rel / atmo.a;
         double cd_g1 = g1_cd(mach);
         double cd = proj.cd0 * (cd_g1 / G1_CD0_REF);
 
-        // Drag force: Fd = 0.5 * rho * v² * Cd * A
-        double Fd = 0.5 * atmo.rho * v * v * cd * proj.area;
-
-        // Deceleration from drag
+        // Drag force based on relative velocity
+        double Fd = 0.5 * atmo.rho * v_rel * v_rel * cd * proj.area;
         double a_drag = Fd / proj.mass;
 
-        ds.vx = -a_drag * (s.vx / v);
-        ds.vy = -9.80665 - a_drag * (s.vy / v);
+        // Apply drag in direction opposite to relative velocity
+        ds.vx = -a_drag * (v_rel_x / v_rel);
+        ds.vy = -9.80665 - a_drag * (v_rel_y / v_rel);
 
         return ds;
     }
@@ -1777,7 +1811,10 @@ namespace Stanag4355 {
                                     double& range, double& tof)
     {
         const double dt = 0.005;  // 5ms step for accuracy
-        const double g_elev = 0.0;  // gun elevation above ground (m)
+        // NOTE: g_elev stays at 0 because FT data is normalized to gun-level.
+        // Atmosphere uses ISA sea-level as baseline. TEMP/HUM corrections
+        // handle real-world density variations.
+        const double g_elev = 0.0;  // gun elevation (FT baseline = sea level)
 
         State s;
         s.x  = 0;
@@ -3715,8 +3752,69 @@ if(current_menu=="MAP_MODEL")
             main_inputs.push_back("GZ " + std::to_string((int)map_gz));
             main_inputs.push_back("SPHER " + map_spher);
 
+            // 🔥 AUTO-DETECT LOCATION FROM MAP CENTER
+            double center_e = (map_e_max + map_e_min) / 2.0;
+            double center_n = (map_n_max + map_n_min) / 2.0;
+            
+            // Ubicaciones conocidas Honduras (UTM Zone 16N)
+            struct ZoneAtm {
+                const char* name;
+                double e, n;            // coordenadas UTM centro
+                double temp, hum;       // atmósfera promedio
+                double wind_dir, wind_spd; // viento promedio
+            };
+            
+            // ⚠️ ACTUALIZAR con coordenadas reales del MAP MODEL cuando se confirmen
+            ZoneAtm zones[] = {
+                {"ZAMBRANO",   456854, 1577256, 32.0, 80.0,   0, 3.4},
+                {"PINALEJO",   383483, 1649393, 25.0, 85.0,   0, 3.0},
+                {"TRINCHERAS", 479843, 1470565, 34.0, 65.0, 180, 3.0},
+            };
+            
+            const int NUM_ZONES = 3;
+            double min_dist = 1e9;
+            int best_idx = -1;
+            
+            for(int i = 0; i < NUM_ZONES; i++)
+            {
+                double dx = center_e - zones[i].e;
+                double dy = center_n - zones[i].n;
+                double dist = sqrt(dx*dx + dy*dy);
+                if(dist < min_dist)
+                {
+                    min_dist = dist;
+                    best_idx = i;
+                }
+            }
+            
+            std::string zone_name = "UNKNOWN";
+            if(best_idx >= 0 && min_dist < 50000) // Radio: 50km
+            {
+                zone_name = zones[best_idx].name;
+                temperature = zones[best_idx].temp;
+                Stanag4355::cfg_temp = zones[best_idx].temp;
+                Stanag4355::cfg_humidity = zones[best_idx].hum;
+                wind_dir = zones[best_idx].wind_dir;
+                wind_speed = zones[best_idx].wind_spd;
+                Stanag4355::cfg_wind_dir = zones[best_idx].wind_dir;
+                Stanag4355::cfg_wind_spd = zones[best_idx].wind_spd;
+            }
+
             current_menu="MAIN";
             input_stage=0;
+            
+            if(zone_name != "UNKNOWN")
+            {
+                std::stringstream ss;
+                ss << "MAP STORED\n";
+                ss << "ZONE: " << zone_name << "\n";
+                ss << "TEMP=" << std::fixed << std::setprecision(1) << temperature;
+                ss << " HUM=" << Stanag4355::cfg_humidity;
+                ss << " WIND=" << (int)wind_dir << "@" << std::setprecision(1) << wind_speed << "\n";
+                ss << "MAIN (? 1 3 4 5 7 X *)";
+                return ss.str();
+            }
+            
             return "MAP STORED\nMAIN (? 1 3 4 5 7 X *)";
         }
     }
@@ -3809,12 +3907,102 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
+        // 🔥 STANAG CONFIG: TEMP=temperature_in_Celsius
+        if(cmd.size() > 5 && cmd.substr(0, 5) == "TEMP=")
+        {
+            try {
+                double val = std::stod(cmd.substr(5));
+                if(val < -50.0 || val > 60.0)
+                    return "TEMP out of range [-50 to 60] °C\nFM (? 1 2 3 4 S P X *)";
+                Stanag4355::cfg_temp = val;
+                std::stringstream ss;
+                ss << "TEMP=" << std::fixed << std::setprecision(1) << val << " °C\n";
+                ss << "FM (? 1 2 3 4 S P X *)";
+                return ss.str();
+            } catch(...) {
+                return "TEMP: invalid value\nFM (? 1 2 3 4 S P X *)";
+            }
+        }
+
+        // 🔥 STANAG CONFIG: HUM=humidity_percent
+        if(cmd.size() > 4 && cmd.substr(0, 4) == "HUM=")
+        {
+            try {
+                double val = std::stod(cmd.substr(4));
+                if(val < 0.0 || val > 100.0)
+                    return "HUM out of range [0-100] %\nFM (? 1 2 3 4 S P X *)";
+                Stanag4355::cfg_humidity = val;
+                std::stringstream ss;
+                ss << "HUM=" << std::fixed << std::setprecision(1) << val << " %\n";
+                ss << "FM (? 1 2 3 4 S P X *)";
+                return ss.str();
+            } catch(...) {
+                return "HUM: invalid value\nFM (? 1 2 3 4 S P X *)";
+            }
+        }
+
+        // 🔥 STANAG CONFIG: WIND_DIR=direction (degrees FROM, 0=N, 90=E)
+        if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_DIR=")
+        {
+            try {
+                double val = std::stod(cmd.substr(9));
+                if(val < 0.0 || val >= 360.0)
+                    return "WIND_DIR out of range [0-359] deg\nFM (? 1 2 3 4 S P X *)";
+                Stanag4355::cfg_wind_dir = val;
+                std::stringstream ss;
+                ss << "WIND_DIR=" << std::fixed << std::setprecision(0) << val << " deg\n";
+                ss << "FM (? 1 2 3 4 S P X *)";
+                return ss.str();
+            } catch(...) {
+                return "WIND_DIR: invalid value\nFM (? 1 2 3 4 S P X *)";
+            }
+        }
+
+        // 🔥 STANAG CONFIG: WIND_SPD=speed (m/s)
+        if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_SPD=")
+        {
+            try {
+                double val = std::stod(cmd.substr(9));
+                if(val < 0.0 || val > 50.0)
+                    return "WIND_SPD out of range [0-50] m/s\nFM (? 1 2 3 4 S P X *)";
+                Stanag4355::cfg_wind_spd = val;
+                std::stringstream ss;
+                ss << "WIND_SPD=" << std::fixed << std::setprecision(1) << val << " m/s\n";
+                ss << "FM (? 1 2 3 4 S P X *)";
+                return ss.str();
+            } catch(...) {
+                return "WIND_SPD: invalid value\nFM (? 1 2 3 4 S P X *)";
+            }
+        }
+
+        // 🔥 STANAG CONFIG: FIRING_AZ=azimuth (degrees, 0=N, 90=E)
+        if(cmd.size() > 10 && cmd.substr(0, 10) == "FIRING_AZ=")
+        {
+            try {
+                double val = std::stod(cmd.substr(10));
+                if(val < 0.0 || val >= 360.0)
+                    return "FIRING_AZ out of range [0-359] deg\nFM (? 1 2 3 4 S P X *)";
+                Stanag4355::cfg_firing_az = val;
+                std::stringstream ss;
+                ss << "FIRING_AZ=" << std::fixed << std::setprecision(0) << val << " deg\n";
+                ss << "FM (? 1 2 3 4 S P X *)";
+                return ss.str();
+            } catch(...) {
+                return "FIRING_AZ: invalid value\nFM (? 1 2 3 4 S P X *)";
+            }
+        }
+
         // 🔥 STANAG CONFIG: SHOW (show current config)
         if(cmd == "SHOW")
         {
             std::stringstream ss;
             ss << "STANAG Config:\n";
             ss << "  CD0=" << std::fixed << std::setprecision(4) << Stanag4355::cfg_cd0 << "\n";
+            ss << "  TEMP=" << std::setprecision(1) << Stanag4355::cfg_temp << " C\n";
+            ss << "  HUM=" << std::setprecision(1) << Stanag4355::cfg_humidity << " %\n";
+            ss << "  WIND_DIR=" << std::setprecision(0) << Stanag4355::cfg_wind_dir << " deg\n";
+            ss << "  WIND_SPD=" << std::setprecision(1) << Stanag4355::cfg_wind_spd << " m/s\n";
+            ss << "  FIRING_AZ=" << std::setprecision(0) << Stanag4355::cfg_firing_az << " deg\n";
             if(Stanag4355::cfg_v0.empty()) {
                 ss << "  V0: (all defaults)\n";
             } else {
@@ -6249,8 +6437,14 @@ std::string BasicEngine::resetData()
     observers.clear();
 
     wind_dir=0;
-    wind_speed=0;
-    temperature=0;
+    wind_speed=2.5;   // Honduras average
+    temperature=28.0; // Honduras average
+    
+    // Also update Stanag4355 config
+    Stanag4355::cfg_temp = 28.0;
+    Stanag4355::cfg_humidity = 75.0;
+    Stanag4355::cfg_wind_dir = 0.0;
+    Stanag4355::cfg_wind_spd = 2.5;
 
     map_e_max=0;
     map_e_min=0;

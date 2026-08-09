@@ -48,8 +48,8 @@ private:
     // MET / MAP
     //////////////////////////////////////////////////
     double wind_dir = 0;
-    double wind_speed = 0;
-    double temperature = 0;
+    double wind_speed = 2.5;  // Honduras average
+    double temperature = 28.0;  // Honduras average
 
     double map_e_max = 0;
     double map_e_min = 0;
