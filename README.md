@@ -8,8 +8,7 @@ Emulador del calculador balístico HP-71B para control de fuego de artillería, 
 - **Atmósfera configurable** con corrección por temperatura y humedad
 - **Modelo de viento** 2D con componente axial
 - **Auto-detección de ubicación** desde coordenadas MAP MODEL
-- **Firing Tables reales** de FT 155-AM-2 C-5 (M198)
-- **Interfaz HTTP** para integración con sistemas externos
+- **Firing Tables reales** de FT 155-AM-2 C-5
 
 ## Arquitectura
 
@@ -20,9 +19,9 @@ hp71-standalone/
 │   ├── basic_engine.h    # Definiciones
 │   └── ballistic_engine.h # Ecuaciones de movimiento
 ├── hp71_server/          # Servidor HTTP
-│   └── main.cpp          # API REST (POST /input?cmd=)
+│   └── main.cpp          # Servidor
 ├── tables/               # Firing Tables CSV
-│   └── tables.csv        # FT M107 (1225 filas)
+│   └── tables.csv        # FT M107
 └── web_ui/               # Interfaz web
 ```
 
@@ -33,12 +32,6 @@ hp71-standalone/
 - Calibre: 155mm
 - Área: 0.01887 m²
 - Tabla de arrastre G1: 11 puntos (Mach 0.0 - 3.0)
-
-### Cargas M198 (FT 155-AM-2 C-5)
-- Green Bag: 3G, 4G, 5G
-- White Bag: 3W, 4W, 5W, 6W, 7W
-- Red Bag: 7R
-- Super: 8S
 
 ### Atmósfera
 - Modelo ISA con corrección por temperatura (TEMP=)
@@ -70,21 +63,6 @@ El servidor inicia en `http://127.0.0.1:8080`
 
 ## Uso
 
-### API HTTP
-```bash
-# Enviar comando
-curl -X POST "http://127.0.0.1:8080/input?cmd=RUNBUCS"
-
-# Ingresar MAP MODEL
-curl -X POST "http://127.0.0.1:8080/input?cmd=7"
-curl -X POST "http://127.0.0.1:8080/input?cmd=<MAX_E>"
-curl -X POST "http://127.0.0.1:8080/input?cmd=<MIN_E>"
-curl -X POST "http://127.0.0.1:8080/input?cmd=<MAX_N>"
-curl -X POST "http://127.0.0.1:8080/input?cmd=<MIN_N>"
-curl -X POST "http://127.0.0.1:8080/input?cmd=<GZ>"
-curl -X POST "http://127.0.0.1:8080/input?cmd=1"
-```
-
 ### Auto-detección de ubicación
 Al ingresar MAP MODEL, el sistema detecta automáticamente la zona y asigna condiciones atmosféricas predefinidas.
 
@@ -102,7 +80,6 @@ Al ingresar MAP MODEL, el sistema detecta automáticamente la zona y asigna cond
 
 - `VARIABLES_BALISTICAS.txt` - Referencia completa de variables
 - `bateria_bravo_comandos.txt` - Comandos para tiro real
-- `PLAN_INTEGRACION_API.txt` - Plan de integración con sistemas externos
 
 ## Licencia
 
