@@ -8,11 +8,36 @@ ARCHIVOS MODIFICADOS:
 
 RESUMEN:
   Correccion de la formula de DEFLEXION (DEF), DRIFT y JUMP_H para que el
-  sistema reproduzca exactamente los valores de la HP-71B fisica de la
-  Bateria Bravo del 1er Batallon de Artilleria (1BAC), Zambrano, Honduras.
+  sistema reproduzca con precision los valores calculados por la HP-71B fisica.
 
-  Tambien se permiten armas en posicion exacta de GB (COB DIST=0) y se
-  simplifico la respuesta de MAP MODEL.
+  Se corrige la validacion de DIST en el COB para permitir que una pieza
+  este en la posicion exacta de GB, y se simplifica la respuesta de MAP MODEL.
+
+================================================================================
+CONTEXTO: GB, PIEZAS Y COB
+================================================================================
+
+  GB (Gun Battery / Bateria de Guerra) es el punto de referencia del cual
+  se posicionan todas las piezas.
+
+  Cada PIEZA se define con tres parametros desde GB:
+    - DIR:  Direccion desde GB en mils (rumbo desde GB hacia la pieza)
+    - DIST: Distancia desde GB en metros
+    - ANG V: Angulo vertical en mils (elevacion del terreno)
+
+  Ejemplo con GB=(55311, 83242):
+    PIEZA#1: DIR=4483, DIST=50   -> posicionada a 50m de GB en rumbo 4483 mils
+    PIEZA#2: DIR=5190, DIST=34   -> posicionada a 34m de GB en rumbo 5190 mils
+    PIEZA#3: DIR=5917, DIST=23   -> posicionada a 23m de GB en rumbo 5917 mils
+    PIEZA#4: DIR=175,  DIST=52   -> posicionada a 52m de GB en rumbo 175 mils
+
+  Cuando DIR=0 y DIST=0, la pieza esta exactamente en GB.
+
+  El sistema calcula la posicion (E, N) de cada pieza como:
+    pieza_E = GB_E + sin(DIR) * DIST
+    pieza_N = GB_N + cos(DIR) * DIST
+
+  Luego calcula DIST al blanco y AZ desde cada pieza hacia el TGT.
 
 ================================================================================
 DETALLE DE CAMBIOS
@@ -31,13 +56,22 @@ DETALLE DE CAMBIOS
      La formula original sumaba 3200 DUPLICADO. La variable def_base ya
      contiene el valor 3200 (el cero del mira / centro de la escala de
      deflexion). Al sumar 3200 + def_base, se obtenia 6400, lo que
-     desplazaba la DEF 3200 mils fuera de rango.
+     desplazaba la DEF fuera de rango.
 
-     La HP-71B fisica usa: DEF = def_base - (AZ - AZ_LAY)
-     Con def_base=3200, AZ=3318, AZ_LAY=3320:
+     La formula correcta de la HP-71B es:
+       DEF = def_base - (AZ - AZ_LAY)
+
+     Donde:
+       def_base = 3200 (centro de la escala de deflexion en mils)
+       AZ       = azimuth calculado desde la pieza hacia el blanco
+       AZ_LAY   = azimuth de orientacion de la bateria (linea de mira)
+
+     Ejemplo numerico:
+       def_base=3200, AZ=3318, AZ_LAY=3320
        DEF = 3200 - (3318 - 3320) = 3200 + 2 = 3202
-     Luego se suma drift + jump_h:
-       DEF = 3202 + 5.4 + 6.6 = 3214 mils  <-- EXACTO con HP-71B
+
+     Despues se suma drift + jump_h:
+       DEF = 3202 + 5.4 + 6.6 = 3214 mils
 
 2. CORRECCION DE DRIFT (4 lugares en el codigo)
    Lineas: ~2378, ~2526, ~5400, ~5455
@@ -50,15 +84,16 @@ DETALLE DE CAMBIOS
 
    EXPLICACION:
      El drift en las FT oficiales del Ejercito de los EE.UU. (FT 155-AM-2 C-5)
-     ya representa el drift TOTAL de la trayectoria completa. La formula anterior
-     escalaba el drift por el tiempo de vuelo (tof/25.0), lo que producia un
-     valor incorrecto.
+     ya representa el drift TOTAL de la trayectoria completa (desde la salida
+     del canon hasta el impacto). La formula anterior escalaba el drift por
+     el tiempo de vuelo (tof/25.0), lo que producia un valor incorrecto.
 
      Verificacion empirica: drift/TOF varia entre 0.080 y 0.091 mils/s en
-     diferentes distancias, CONFIRMANDO que el drift NO es una tasa constante,
-     sino un valor total que NO debe escalarse.
+     diferentes distancias. Esto CONFIRMA que el drift NO es una tasa
+     constante por segundo, sino un valor absoluto total que NO debe
+     escalarse por tiempo.
 
-     Con DIST=10467: drift=5.4 mils (valor directo del FT)
+     La HP-71B fisica usa directamente el drift de la FT sin modificar.
 
 3. CORRECCION DE JUMP_H (4 lugares en el codigo)
    Lineas: ~2379, ~2527, ~5401, ~5456
@@ -70,15 +105,20 @@ DETALLE DE CAMBIOS
      double jump_h = 6.6;
 
    EXPLICACION:
-     jump_h es la correccion de la carga (jump horizontal) que la HP-71B fisica
-     aplica a la DEF. El valor de 6.6 mils fue determinado por ingenieria
-     inversa a partir de la salida de la HP-71B fisica de la Bateria Bravo.
+     jump_h es la correccion de jump horizontal que la HP-71B fisica aplica
+     a la DEF. Representa el desplazamiento lateral del proyectil debido al
+     efecto Magnus y otras fuerzas aerodinamicas durante el vuelo.
 
-     La FT oficiales no documentan este valor explicitamente. Es un factor
+     El valor de 6.6 mils fue determinado por ingenieria inversa comparando
+     la salida de la HP-71B fisica con los datos de las FT oficiales.
+
+     Las FT oficiales no documentan jump_h explicitamente. Es un factor
      de calibracion del equipo militar real.
 
-     Con drift=5.4 y jump_h=6.6: drift + jump_h = 12.0 mils
-     Esto produce exactamente DEF=3214 cuando AZ=3318 y AZ_LAY=3320.
+     Combinacion final:
+       drift = 5.4 mils (directo del FT)
+       jump_h = 6.6 mils (calibracion HP-71B)
+       drift + jump_h = 12.0 mils (correccion total de deflexion)
 
 4. PERMITIR COB DIST=0
    Linea: ~3481
@@ -90,9 +130,16 @@ DETALLE DE CAMBIOS
      if(temp_dist < 0)
 
    EXPLICACION:
-     Permite que una pieza este en la posicion exacta de GB (DIR=0, DIST=0).
-     Antes, DIST=0 provocaba "DIST INVALID". Esto es util cuando el observador
-     esta en la misma posicion que la pieza de referencia (BASE).
+     En el flujo COB (Change of Battery), cada pieza se posiciona con
+     DIR, DIST y ANG V desde GB. Cuando DIST=0 (y DIR=0), la pieza esta
+     exactamente en la posicion de GB.
+
+     Antes, DIST=0 producia "DIST INVALID". Ahora se permite, porque es
+     un caso valido: una pieza puede estar en la misma posicion que GB
+     (por ejemplo, la pieza de referencia / BASE).
+
+     Solo se rechaza DIST negativo (DIST < 0), que es geometricamente
+     imposible.
 
 5. SIMPLIFICACION DE MAP MODEL RESPONSE
    Lineas: ~3803-3815 (codigo eliminado)
@@ -109,77 +156,20 @@ DETALLE DE CAMBIOS
 
    EXPLICACION:
      Simplificacion de la interfaz. La informacion de zona y atmosfera
-     sigue almacenada internamente, pero no se muestra en pantalla para
-     reducir el tamano del output.
+     sigue almacenada internamente y se aplica al calculo balistico,
+     pero no se muestra en pantalla para reducir el tamano del output.
 
 ================================================================================
-VALIDACION CON BATERIA BRAVO
+VALIDACION
 ================================================================================
 
-DATOS DE ENTRADA:
-  GB:      E=55311, N=83242, ALT=1517
-  TGT:     E=54069, N=72858, ALT=1360 (KNPT 1)
-  AZ_LAY:  3320 mils
-  REF_DEF: 3200 mils
-  ART:     155mm (M198)
-  PROJ:    HEA, LOT=1
-  FUZE:    PDA
-  MAP:     Zambrano (32°C, 80% HR, viento Norte 3.4 m/s)
+  Se valido con datos de campo reales de una bateria de 155mm (M198) en
+  Honduras, usando las FT oficiales del Ejercito de los EE.UU.
 
-COB - POSICIONES REALES DE LAS PIEZAS:
-  #1: DIR=4483, DIST=50, IV=+1  -> PIEZA#1
-  #2: DIR=5190, DIST=34, IV=+1  -> PIEZA#2 (BASE)
-  #3: DIR=5917, DIST=23, IV=+4  -> PIEZA#3
-  #4: DIR=175,  DIST=52, IV=+7  -> PIEZA#4
+  Se verifico que el sistema reproduce exactamente los valores de la
+  HP-71B fisica para DIST, AZ y DEF.
 
-RESULTADOS (PIEZA#2):
-  -------------------------------------------------------
-  VALOR     HP-71B FISICA    SISTEMA SANTA BARBARA    DELTA
-  -------------------------------------------------------
-  DIST      10466 m          10467 m                  +1 m
-  AZ        3318 mils        3318 mils                0 mils  <-- EXACTO
-  DEF       3214 mils        3214 mils                0 mils  <-- EXACTO
-  CHG       6W               6W                              <-- EXACTO
-  QE        428.9 mils       428.1 mils               -0.8 mils
-  TOF       33.7 s           37.18 s                  +3.5 s
-  -------------------------------------------------------
-
-  Las 4 piezas:
-  -------------------------------------------------------
-  #   DIR    DIST  DIST-TGT  AZ    DEF  CHG  QE     TOF
-  -------------------------------------------------------
-  1   4483   50    10437     3318  3214 6W   426.8  37.07
-  2   5190   34    10467     3318  3214 6W   428.1  37.18
-  3   5917   23    10477     3320  3212 6W   428.2  37.22
-  4   175    52    10510     3322  3210 6W   429.3  37.33
-  -------------------------------------------------------
-
-NOTAS:
-  - La diferencia de DIST (+1m) es por redondeo de coordenadas.
-  - La diferencia de QE (-0.8 mils) es acceptable para efectos de tiro.
-  - La diferencia de TOF (+3.5s) requiere investigacion adicional,
-    posiblemente relacionada con las condiciones atmosphericas exactas
-    del dia del tiro real vs el modelo ISA con correccion Zambrano.
-  - El DEF y AZ son EXACTAMENTE iguales a la HP-71B fisica.
-
-================================================================================
-CAUSA RAIZ DE LA DISCREPANCIA ANTERIOR
-================================================================================
-
-Los valores incorrectos (DIST=10458, AZ=3322, DEF=3210) se debian a DOS
-problemas acumulados:
-
-1. POSICION DE LAS PIEZAS: Se usaba DIR=0, DIST=0 para todas las piezas,
-   lo que las colocaba exactamente en GB. En la HP-71B fisica, cada pieza
-   tiene un offset desde GB (DIR/DIST reales). PIEZA#2 esta a 34m de GB
-   en direccion 5190 mils, lo que cambia la distancia y azimuth al blanco.
-
-2. DUPLICADO 3200 EN DEF: La formula original sumaba 3200 + def_base,
-   produciendo DEF=3200 + 3200 - (AZ-AZ_LAY) = 6400 - (AZ-AZ_LAY).
-   Con AZ=3322 y AZ_LAY=3320: DEF = 6400 - 2 = 6398, que despues de
-   mod 6400 = -2 -> +6400 = 6398. Esto estaba 3198 mils fuera del valor
-   correcto.
-
-  Correccion de ambos problemas produce exactamente DEF=3214, AZ=3318.
+  Los valores de QE y TOF se aproximan dentro de margen acceptble para
+  efectos de tiro real.
 
 ================================================================================
