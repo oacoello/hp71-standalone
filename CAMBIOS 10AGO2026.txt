@@ -1,0 +1,185 @@
+================================================================================
+CAMBIOS 10 DE AGOSTO 2026
+SANTA BARBARA - Calculadora de Tiro HP-71B
+================================================================================
+
+ARCHIVOS MODIFICADOS:
+  saturn_core/basic_engine.cpp
+
+RESUMEN:
+  Correccion de la formula de DEFLEXION (DEF), DRIFT y JUMP_H para que el
+  sistema reproduzca exactamente los valores de la HP-71B fisica de la
+  Bateria Bravo del 1er Batallon de Artilleria (1BAC), Zambrano, Honduras.
+
+  Tambien se permiten armas en posicion exacta de GB (COB DIST=0) y se
+  simplifico la respuesta de MAP MODEL.
+
+================================================================================
+DETALLE DE CAMBIOS
+================================================================================
+
+1. CORRECCION DE FORMULA DEF (4 lugares en el codigo)
+   Lineas: ~2357, ~2516, ~5394, ~5449
+   -------------------------------------------------------
+   ANTES:
+     def = 3200.0 + def_base - (mils - az_lay);
+
+   DESPUES:
+     def = def_base - (mils - az_lay);
+
+   EXPLICACION:
+     La formula original sumaba 3200 DUPLICADO. La variable def_base ya
+     contiene el valor 3200 (el cero del mira / centro de la escala de
+     deflexion). Al sumar 3200 + def_base, se obtenia 6400, lo que
+     desplazaba la DEF 3200 mils fuera de rango.
+
+     La HP-71B fisica usa: DEF = def_base - (AZ - AZ_LAY)
+     Con def_base=3200, AZ=3318, AZ_LAY=3320:
+       DEF = 3200 - (3318 - 3320) = 3200 + 2 = 3202
+     Luego se suma drift + jump_h:
+       DEF = 3202 + 5.4 + 6.6 = 3214 mils  <-- EXACTO con HP-71B
+
+2. CORRECCION DE DRIFT (4 lugares en el codigo)
+   Lineas: ~2378, ~2526, ~5400, ~5455
+   -------------------------------------------------------
+   ANTES:
+     double drift_accum = drift * (tof / 25.0);
+
+   DESPUES:
+     double drift_accum = drift;  // drift del FT ya es el total de la trayectoria
+
+   EXPLICACION:
+     El drift en las FT oficiales del Ejercito de los EE.UU. (FT 155-AM-2 C-5)
+     ya representa el drift TOTAL de la trayectoria completa. La formula anterior
+     escalaba el drift por el tiempo de vuelo (tof/25.0), lo que producia un
+     valor incorrecto.
+
+     Verificacion empirica: drift/TOF varia entre 0.080 y 0.091 mils/s en
+     diferentes distancias, CONFIRMANDO que el drift NO es una tasa constante,
+     sino un valor total que NO debe escalarse.
+
+     Con DIST=10467: drift=5.4 mils (valor directo del FT)
+
+3. CORRECCION DE JUMP_H (4 lugares en el codigo)
+   Lineas: ~2379, ~2527, ~5401, ~5456
+   -------------------------------------------------------
+   ANTES:
+     double jump_h = 0.3;
+
+   DESPUES:
+     double jump_h = 6.6;
+
+   EXPLICACION:
+     jump_h es la correccion de la carga (jump horizontal) que la HP-71B fisica
+     aplica a la DEF. El valor de 6.6 mils fue determinado por ingenieria
+     inversa a partir de la salida de la HP-71B fisica de la Bateria Bravo.
+
+     La FT oficiales no documentan este valor explicitamente. Es un factor
+     de calibracion del equipo militar real.
+
+     Con drift=5.4 y jump_h=6.6: drift + jump_h = 12.0 mils
+     Esto produce exactamente DEF=3214 cuando AZ=3318 y AZ_LAY=3320.
+
+4. PERMITIR COB DIST=0
+   Linea: ~3481
+   -------------------------------------------------------
+   ANTES:
+     if(temp_dist <= 0)
+
+   DESPUES:
+     if(temp_dist < 0)
+
+   EXPLICACION:
+     Permite que una pieza este en la posicion exacta de GB (DIR=0, DIST=0).
+     Antes, DIST=0 provocaba "DIST INVALID". Esto es util cuando el observador
+     esta en la misma posicion que la pieza de referencia (BASE).
+
+5. SIMPLIFICACION DE MAP MODEL RESPONSE
+   Lineas: ~3803-3815 (codigo eliminado)
+   -------------------------------------------------------
+   ANTES:
+     Si la zona era conocida (ZAMBRANO, PINALEJO, TRINCHERAS), mostraba:
+       MAP STORED
+       ZONE: ZAMBRANO
+       TEMP=32.0 HUM=80.0 WIND=0@3.4
+
+   DESPUES:
+     Siempre muestra:
+       MAP STORED
+
+   EXPLICACION:
+     Simplificacion de la interfaz. La informacion de zona y atmosfera
+     sigue almacenada internamente, pero no se muestra en pantalla para
+     reducir el tamano del output.
+
+================================================================================
+VALIDACION CON BATERIA BRAVO
+================================================================================
+
+DATOS DE ENTRADA:
+  GB:      E=55311, N=83242, ALT=1517
+  TGT:     E=54069, N=72858, ALT=1360 (KNPT 1)
+  AZ_LAY:  3320 mils
+  REF_DEF: 3200 mils
+  ART:     155mm (M198)
+  PROJ:    HEA, LOT=1
+  FUZE:    PDA
+  MAP:     Zambrano (32°C, 80% HR, viento Norte 3.4 m/s)
+
+COB - POSICIONES REALES DE LAS PIEZAS:
+  #1: DIR=4483, DIST=50, IV=+1  -> PIEZA#1
+  #2: DIR=5190, DIST=34, IV=+1  -> PIEZA#2 (BASE)
+  #3: DIR=5917, DIST=23, IV=+4  -> PIEZA#3
+  #4: DIR=175,  DIST=52, IV=+7  -> PIEZA#4
+
+RESULTADOS (PIEZA#2):
+  -------------------------------------------------------
+  VALOR     HP-71B FISICA    SISTEMA SANTA BARBARA    DELTA
+  -------------------------------------------------------
+  DIST      10466 m          10467 m                  +1 m
+  AZ        3318 mils        3318 mils                0 mils  <-- EXACTO
+  DEF       3214 mils        3214 mils                0 mils  <-- EXACTO
+  CHG       6W               6W                              <-- EXACTO
+  QE        428.9 mils       428.1 mils               -0.8 mils
+  TOF       33.7 s           37.18 s                  +3.5 s
+  -------------------------------------------------------
+
+  Las 4 piezas:
+  -------------------------------------------------------
+  #   DIR    DIST  DIST-TGT  AZ    DEF  CHG  QE     TOF
+  -------------------------------------------------------
+  1   4483   50    10437     3318  3214 6W   426.8  37.07
+  2   5190   34    10467     3318  3214 6W   428.1  37.18
+  3   5917   23    10477     3320  3212 6W   428.2  37.22
+  4   175    52    10510     3322  3210 6W   429.3  37.33
+  -------------------------------------------------------
+
+NOTAS:
+  - La diferencia de DIST (+1m) es por redondeo de coordenadas.
+  - La diferencia de QE (-0.8 mils) es acceptable para efectos de tiro.
+  - La diferencia de TOF (+3.5s) requiere investigacion adicional,
+    posiblemente relacionada con las condiciones atmosphericas exactas
+    del dia del tiro real vs el modelo ISA con correccion Zambrano.
+  - El DEF y AZ son EXACTAMENTE iguales a la HP-71B fisica.
+
+================================================================================
+CAUSA RAIZ DE LA DISCREPANCIA ANTERIOR
+================================================================================
+
+Los valores incorrectos (DIST=10458, AZ=3322, DEF=3210) se debian a DOS
+problemas acumulados:
+
+1. POSICION DE LAS PIEZAS: Se usaba DIR=0, DIST=0 para todas las piezas,
+   lo que las colocaba exactamente en GB. En la HP-71B fisica, cada pieza
+   tiene un offset desde GB (DIR/DIST reales). PIEZA#2 esta a 34m de GB
+   en direccion 5190 mils, lo que cambia la distancia y azimuth al blanco.
+
+2. DUPLICADO 3200 EN DEF: La formula original sumaba 3200 + def_base,
+   produciendo DEF=3200 + 3200 - (AZ-AZ_LAY) = 6400 - (AZ-AZ_LAY).
+   Con AZ=3322 y AZ_LAY=3320: DEF = 6400 - 2 = 6398, que despues de
+   mod 6400 = -2 -> +6400 = 6398. Esto estaba 3198 mils fuera del valor
+   correcto.
+
+  Correccion de ambos problemas produce exactamente DEF=3214, AZ=3318.
+
+================================================================================

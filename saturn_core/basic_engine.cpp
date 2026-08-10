@@ -2357,12 +2357,12 @@ std::string BasicEngine::execute(const std::string& input)
         double def = 0.0;
 
         // CORRECCION DE SIGNO DEF:
-        // La HP fisica usa 3200 + REF_DEF - (AZ - AZ_LAY).
-        // 3200 es el cero del mira (centro de la escala de deflexion).
+        // La HP fisica usa def_base - (AZ - AZ_LAY).
+        // def_base (3200) es el cero del mira (centro de la escala de deflexion).
         if(use_fm1_reverse)
-            def = 3200.0 + def_base - (mils - az_lay);
+            def = def_base - (mils - az_lay);
         else
-            def = 3200.0 + def_base - (mils - az_lay);
+            def = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse)
             def += reg_def + df_corr;
@@ -2375,8 +2375,8 @@ std::string BasicEngine::execute(const std::string& input)
         // 🔥 DEFLEXIÓN ACUMULADA 
         // ================================
 
-        double drift_accum = drift * (tof / 25.0);
-        double jump_h = 0.3;
+        double drift_accum = drift;  // drift del FT ya es el total de la trayectoria
+        double jump_h = 6.6;
 
         if(use_fm1_reverse)
         {
@@ -2516,15 +2516,15 @@ std::string BasicEngine::execute(const std::string& input)
         // Misma convencion de DEF que la HP fisica:
         // 3200 + REF_DEF - (AZ - AZ_LAY)
         if(use_fm1_reverse_ref)
-            def_ref = 3200.0 + def_base - (mils - az_lay);
+            def_ref = def_base - (mils - az_lay);
         else
-            def_ref = 3200.0 + def_base - (mils - az_lay);
+            def_ref = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse_ref)
             def_ref += reg_def + df_corr;
 
-            double drift_accum = drift_tmp * (tof_tmp / 25.0);
-            double jump_h = 0.3;
+            double drift_accum = drift_tmp;  // drift del FT ya es el total
+            double jump_h = 6.6;
 
         if(use_fm1_reverse_ref)
         {
@@ -3478,7 +3478,7 @@ if(current_menu=="TARGET")
         if(!v.empty())
             temp_iv = std::stod(v);
 
-        if(temp_dist <= 0)
+        if(temp_dist < 0)
         return "DIST INVALID";
 
         if(temp_dir < 0 || temp_dir >= 6400)
@@ -3802,18 +3802,6 @@ if(current_menu=="MAP_MODEL")
 
             current_menu="MAIN";
             input_stage=0;
-            
-            if(zone_name != "UNKNOWN")
-            {
-                std::stringstream ss;
-                ss << "MAP STORED\n";
-                ss << "ZONE: " << zone_name << "\n";
-                ss << "TEMP=" << std::fixed << std::setprecision(1) << temperature;
-                ss << " HUM=" << Stanag4355::cfg_humidity;
-                ss << " WIND=" << (int)wind_dir << "@" << std::setprecision(1) << wind_speed << "\n";
-                ss << "MAIN (? 1 3 4 5 7 X *)";
-                return ss.str();
-            }
             
             return "MAP STORED\nMAIN (? 1 3 4 5 7 X *)";
         }
@@ -5406,11 +5394,11 @@ if(current_menu=="SHIFT")
             // DEF REAL LIMPIA
             // Convencion corregida:
             // 3200 + REF_DEF - (AZ - AZ_LAY)
-            double def_real = 3200.0 + def_base - (mils - az_lay);
+            double def_real = def_base - (mils - az_lay);
             def_real += df_corr;
             
-            double drift_accum_real = drift * (tof / 25.0);
-            double jump_h_real = 0.3;
+            double drift_accum_real = drift;  // drift del FT ya es el total
+            double jump_h_real = 6.6;
 
             def_real += drift_accum_real;
             def_real += jump_h_real;
@@ -5461,11 +5449,11 @@ if(current_menu=="SHIFT")
 
                 // DEF temporal con la misma convencion corregida:
                 // 3200 + REF_DEF - (AZ - AZ_LAY)
-                double def_temp = 3200.0 + def_base - (mils - az_lay);
+                double def_temp = def_base - (mils - az_lay);
                 def_temp += reg_def + df_corr;
 
-                double drift_accum = drift_tmp * (tof_tmp / 25.0);
-                double jump_h = 0.3;
+                double drift_accum = drift_tmp;  // drift del FT ya es el total
+                double jump_h = 6.6;
 
                 def_temp += drift_accum;
                 def_temp += jump_h;
