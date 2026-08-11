@@ -3873,7 +3873,7 @@ case MENU_SHIFT:
             if(cmd=="P")
             {
                 input_stage = 2;
-                return "MET CNTL:";
+                return "MET CNTL (P *):";
             }
 
             std::string v = normStr(cmd);
@@ -3889,7 +3889,7 @@ case MENU_SHIFT:
             if(cmd=="P")
             {
                 input_stage = 3;
-                return "PROJ:";
+                return "PROJ (P *): " + ammo_proj_prop;
             }
 
             std::string v = normStr(cmd);
@@ -3905,7 +3905,7 @@ case MENU_SHIFT:
             if(cmd=="P")
             {
                 input_stage = 4;
-                return "PROJ LOT:";
+                return "PROJ LOT (P *): " + ammo_proj_lot;
             }
 
             std::string v = normStr(cmd);
@@ -4330,7 +4330,7 @@ case MENU_INST_PREV_LR:
     if(cmd=="P")
     {
         current_menu = MENU_INST_PREV_DIR;
-        return "PREV DIR (*):";
+        return "PREV DIR (P *): " + std::to_string((int)inst_prev_dir);
     }
 
     if(cmd=="*")
@@ -4375,7 +4375,7 @@ case MENU_INST_PREV_AD:
     if(cmd=="P")
     {
         current_menu = MENU_INST_PREV_LR;
-        return "PREV L/R (P*):";
+        return "PREV L/R (P *): " + std::to_string((int)inst_prev_lr);
     }
 
     if(cmd=="*")
@@ -4420,7 +4420,7 @@ case MENU_INST_PREV_UD:
     if(cmd=="P")
     {
         current_menu = MENU_INST_PREV_AD;
-        return "PREV A/D (P*):";
+        return "PREV A/D (P *): " + std::to_string((int)inst_prev_ad);
     }
 
     if(cmd=="*")
@@ -4471,7 +4471,7 @@ case MENU_INST_DIR:
     if(cmd=="P")
     {
         current_menu = MENU_INST_PREV_UD;
-        return "PREV U/D (P*):";
+        return "PREV U/D (P *): " + std::to_string((int)inst_prev_ud);
     }
 
     if(cmd=="X" || cmd=="*")
@@ -4590,7 +4590,7 @@ case MENU_INST_AD_SHIFT:
     if(cmd=="P")
     {
         current_menu = MENU_INST_LR_SHIFT;
-        return "(L/R) SHIFT (P*):";
+        return "(L/R) SHIFT (P *): " + std::to_string((int)inst_lr_shift);
     }
 
     if(cmd=="*")
@@ -4635,7 +4635,7 @@ case MENU_INST_UD_SHIFT:
     if(cmd=="P")
     {
         current_menu = MENU_INST_AD_SHIFT;
-        return "(A/D) SHIFT (P*):";
+        return "(A/D) SHIFT (P *): " + std::to_string((int)inst_ad_shift);
     }
 
     if(cmd=="*")
