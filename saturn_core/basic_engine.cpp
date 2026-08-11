@@ -1902,14 +1902,31 @@ case MENU_TARGET:
 
         if(input_stage==0)
         {
-            ammo_proj_prop=cmd;
+            if(cmd=="P")
+            {
+                ammo_input_active=false;
+                current_menu = MENU_AFU;
+                return afuMenu();
+            }
+
+            std::string v = normStr(cmd);
+            if(!v.empty())
+                ammo_proj_prop=v;
             input_stage++;
             return "LOT:";
         }
 
         if(input_stage==1)
         {
-            ammo_proj_lot=cmd;
+            if(cmd=="P")
+            {
+                input_stage=0;
+                return "PROJ (P *): " + ammo_proj_prop;
+            }
+
+            std::string v = normStr(cmd);
+            if(!v.empty())
+                ammo_proj_lot=v;
 
             main_inputs.push_back("AMMO");
             main_inputs.push_back("PROJ " + ammo_proj_prop);
@@ -2092,16 +2109,6 @@ case MENU_TARGET:
     {
         if(cmd=="P")
         {
-            if(cob_current_index > 1)
-            {
-                cob_current_index--;
-                current_menu = MENU_COB_IV;
-
-                std::stringstream ss;
-                ss << "#" << cob_current_index << " IV (P *): " << (int)temp_iv;
-                return ss.str();
-            }
-
             current_menu = MENU_COB_REF_DEF;
             return "REF DEF (P *): " + std::to_string(def_base);
         }
@@ -2354,7 +2361,8 @@ case MENU_MAP_MODEL:
 
     if(cmd=="P")
     {
-        if(input_stage > 0) input_stage--;
+        if(input_stage > 0)
+            input_stage--;
 
         switch(input_stage)
         {
@@ -2459,23 +2467,38 @@ case MENU_MAP_MODEL:
 
     case MENU_MET:
     {
+        if(cmd=="P")
+        {
+            if(input_stage > 0)
+                input_stage--;
+
+            switch(input_stage)
+            {
+                case 0: return "DIR (P *): " + std::to_string((int)wind_dir);
+                case 1: return "VEL (P *): " + std::to_string((int)wind_speed);
+                case 2: return "TEMP (P *): " + std::to_string((int)temperature);
+            }
+        }
+
+        std::string v = normStr(cmd);
+
         switch(input_stage)
         {
             case 0:
-                wind_dir = std::stod(cmd);
+                if(!v.empty())
+                    wind_dir = std::stod(v);
                 input_stage++;
                 return "VEL:";
-
             case 1:
-                wind_speed = std::stod(cmd);
+                if(!v.empty())
+                    wind_speed = std::stod(v);
                 input_stage++;
                 return "TEMP:";
-
             case 2:
-                temperature = std::stod(cmd);
+                if(!v.empty())
+                    temperature = std::stod(v);
                 current_menu = MENU_AFU;
                 input_stage=0;
-
                 return "MET STORED\nAFU INDEX (? 1 3 5 *)";
         }
     }
@@ -3811,7 +3834,11 @@ case MENU_SHIFT:
     {
         case 0:
         {
-            int knpt = std::stoi(cmd);
+            std::string v = normStr(cmd);
+            if(v.empty())
+                return "KNPT #:";
+
+            int knpt = std::stoi(v);
             last_inputs.push_back("KNPT " + std::to_string(knpt));
 
             if(targets.find(knpt) == targets.end())
@@ -3842,30 +3869,60 @@ case MENU_SHIFT:
             return "PROJ:";
 
         case 3:
-            ammo_proj_prop = cmd;
-            last_inputs.push_back("PROJ " + cmd);
+        {
+            if(cmd=="P")
+            {
+                input_stage = 2;
+                return "MET CNTL:";
+            }
+
+            std::string v = normStr(cmd);
+            if(!v.empty())
+                ammo_proj_prop = v;
+            last_inputs.push_back("PROJ " + ammo_proj_prop);
             input_stage++;
             return "PROJ LOT:";
+        }
 
         case 4:
-            ammo_proj_lot = cmd;
-            last_inputs.push_back("LOT " + cmd);
+        {
+            if(cmd=="P")
+            {
+                input_stage = 3;
+                return "PROJ:";
+            }
+
+            std::string v = normStr(cmd);
+            if(!v.empty())
+                ammo_proj_lot = v;
+            last_inputs.push_back("LOT " + ammo_proj_lot);
             input_stage++;
             return "FUZE:";
+        }
 
         case 5:
         {
-            if(cmd=="TIA")
+            if(cmd=="P")
             {
-                fuze_time_mode = true;
-                hob = 0;
-                last_inputs.push_back("FUZE TIA");
+                input_stage = 4;
+                return "PROJ LOT:";
             }
-            else
+
+            std::string v = normStr(cmd);
+            if(!v.empty())
             {
-                fuze_time_mode = false;
-                hob = 0;
-                last_inputs.push_back("FUZE PDA");
+                if(v == "TIA")
+                {
+                    fuze_time_mode = true;
+                    hob = 0;
+                    last_inputs.push_back("FUZE TIA");
+                }
+                else
+                {
+                    fuze_time_mode = false;
+                    hob = 0;
+                    last_inputs.push_back("FUZE PDA");
+                }
             }
 
             current_menu = MENU_REG_BASE_PIECE;
@@ -3874,6 +3931,12 @@ case MENU_SHIFT:
 
         case 6:
         {
+            if(cmd=="P")
+            {
+                current_menu = MENU_REG_BASE_PIECE;
+                return "BASE PIECE (P *): " + std::to_string(base_piece_index + 1);
+            }
+
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_dist_solution : std::stod(v);
 
@@ -3902,6 +3965,15 @@ case MENU_SHIFT:
 
         case 7:
         {
+            if(cmd=="P")
+            {
+                input_stage = 6;
+
+                std::stringstream ss;
+                ss << "REG RG (" << (int)last_dist_solution << "):";
+                return ss.str();
+            }
+
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_def_solution : std::stod(v);
 
