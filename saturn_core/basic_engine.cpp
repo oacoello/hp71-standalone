@@ -3872,16 +3872,32 @@ if(current_menu=="SHIFT")
             return "PROJ:";
 
         case 3:
+        {
+            if(cmd=="P")
+            {
+                input_stage = 2;
+                return "PROJ (P *): " + ammo_proj_prop;
+            }
+
             ammo_proj_prop = cmd;
             last_inputs.push_back("PROJ " + cmd);
             input_stage++;
             return "PROJ LOT:";
+        }
 
         case 4:
+        {
+            if(cmd=="P")
+            {
+                input_stage = 3;
+                return "PROJ LOT (P *): " + ammo_proj_lot;
+            }
+
             ammo_proj_lot = cmd;
             last_inputs.push_back("LOT " + cmd);
             input_stage++;
             return "FUZE:";
+        }
 
         case 5:
         {
@@ -4288,7 +4304,13 @@ if(current_menu=="INST_PREV_LR")
     if(cmd=="P")
     {
         current_menu = "INST_PREV_DIR";
-        return "PREV DIR (*):";
+        return "PREV DIR (P *): " + std::to_string((int)inst_prev_dir);
+    }
+
+    if(cmd=="*")
+    {
+        current_menu = "COMP_CORR";
+        return "COMP CORR (Y N P *)";
     }
 
     if(cmd=="*")
@@ -4333,7 +4355,7 @@ if(current_menu=="INST_PREV_AD")
     if(cmd=="P")
     {
         current_menu = "INST_PREV_LR";
-        return "PREV L/R (P*):";
+        return "PREV L/R (P *): " + std::to_string((int)inst_prev_lr);
     }
 
     if(cmd=="*")
@@ -4378,7 +4400,7 @@ if(current_menu=="INST_PREV_UD")
     if(cmd=="P")
     {
         current_menu = "INST_PREV_AD";
-        return "PREV A/D (P*):";
+        return "PREV A/D (P *): " + std::to_string((int)inst_prev_ad);
     }
 
     if(cmd=="*")
@@ -4429,7 +4451,7 @@ if(current_menu=="INST_DIR")
     if(cmd=="P")
     {
         current_menu = "INST_PREV_UD";
-        return "PREV U/D (P*):";
+        return "PREV U/D (P *): " + std::to_string((int)inst_prev_ud);
     }
 
     if(cmd=="X" || cmd=="*")
