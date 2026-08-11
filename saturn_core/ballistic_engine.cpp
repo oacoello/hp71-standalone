@@ -10,7 +10,7 @@ struct TableEntry
 };
 
 //////////////////////////////////////////////////
-// 🔥 TABLAS 105mm
+//  TABLAS 105mm
 //////////////////////////////////////////////////
 
 static std::vector<TableEntry> table_105_C5 =
@@ -28,7 +28,7 @@ static std::vector<TableEntry> table_105_C6 =
 };
 
 //////////////////////////////////////////////////
-// 🔥 TABLAS 155mm (ejemplo base)
+//  TABLAS 155mm (ejemplo base)
 //////////////////////////////////////////////////
 
 static std::vector<TableEntry> table_155_M4 =
@@ -39,7 +39,7 @@ static std::vector<TableEntry> table_155_M4 =
 };
 
 //////////////////////////////////////////////////
-// 🔥 SELECTOR AUTOMÁTICO
+//  SELECTOR AUTOMÁTICO
 //////////////////////////////////////////////////
 
 static std::vector<TableEntry>* selectTable(const std::string& charge)
@@ -56,7 +56,7 @@ static std::vector<TableEntry>* selectTable(const std::string& charge)
 }
 
 //////////////////////////////////////////////////
-// 🔥 INTERPOLACIÓN
+//  INTERPOLACIÓN
 //////////////////////////////////////////////////
 
 BallisticResult BallisticEngine::getSolution(double dist, const std::string& charge)

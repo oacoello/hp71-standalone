@@ -29,7 +29,7 @@ double BasicEngine::obs_gz = 0;
 
 static std::string normStr(std::string s)
 {
-    // 🔥 eliminar caracteres basura (ENTER, TAB, etc)
+    //  eliminar caracteres basura (ENTER, TAB, etc)
     for(char& c : s)
     {
         if(c == '\n' || c == '\r' || c == '\t')
@@ -153,7 +153,7 @@ static void loadTablesFromCSV(const std::string& filename)
             [](const Row& a,const Row& b){ return a.d < b.d; });
     }
 
-    // 🔥 VALIDACIÓN DE DATOS CARGADOS
+    //  VALIDACIÓN DE DATOS CARGADOS
     int warnings = 0;
     for(const auto& it : firingTables)
     {
@@ -235,7 +235,7 @@ static int fire_phase = 0;
 // 3 SHIFT
 // 4 PMI
 
-// 🔥 COB DOCTRINAL VARIABLES
+//  COB DOCTRINAL VARIABLES
 static double gb_e = 0.0;
 static double gb_n = 0.0;
 static double gb_alt = 0.0;
@@ -248,13 +248,13 @@ static double temp_dir = 0.0;
 static double temp_dist = 0.0;
 static double temp_iv = 0.0;
 
-// 🔥 BASE PIECE DOCTRINAL (FALTABA)
+//  BASE PIECE DOCTRINAL (FALTABA)
 static int base_piece_index = 0;
 
-// 🔥 OPEN DOCTRINAL
+//  OPEN DOCTRINAL
 static double sheaf_width = 60.0; // ancho total en mils
 
-// 🔥 DOCTRINAL A
+//  DOCTRINAL A
 static bool all_guns_command = false; 
 
 double map_e_max = 0;
@@ -281,7 +281,7 @@ struct ObserverData
 
 static std::map<int, ObserverData> observers;
 
-// 🔥 MULTI OBS DOCTRINAL
+//  MULTI OBS DOCTRINAL
 static int obs_expected_qty = 1;
 static int obs_current_index = 1;
 
@@ -320,7 +320,7 @@ std::string drPrefix(const std::string& menu,const std::string& text)
 //////////////////////////////////////////////////
 
 static bool mission_active = false;
-// 🔥 CAMBIO DE CARGA DOCTRINAL
+//  CAMBIO DE CARGA DOCTRINAL
 static bool manual_chg_enabled = false;
 static std::string manual_chg_value = "";
 static bool chg_allowed = false;
@@ -434,7 +434,7 @@ static double shift_prev_ud = 0.0;
 
 static std::string shift_new_dir = "N";
 static double shift_angle = 0.0;
-// 🔥 REG MEMORY (FM2)
+//  REG MEMORY (FM2)
 static bool reg_data_available = false;
 
 static int last_knpt = 0;
@@ -465,7 +465,7 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
 
             double f = (d - a.d) / (b.d - a.d);
 
-            // 🔥 INTERPOLACIÓN CUADRÁTICA (3 puntos) - Manual HP-71B
+            //  INTERPOLACIÓN CUADRÁTICA (3 puntos) - Manual HP-71B
             // Cuando hay 3 puntos disponibles, usar interpolación cuadrática
             // Fórmula: y = y0 + f*(y1-y0) + f*(f-1)/2 * (y0 - 2*y1 + y2)
             if(i + 1 < t.size())
@@ -512,7 +512,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         const AmmoKey& key = it->first;
         const std::vector<Row>& table = it->second;
 
-        // 🔥 FILTRO POR ARTILLERY
+        //  FILTRO POR ARTILLERY
         if(normStr(key.artillery) != normStr(artillery_type))
             continue;
 
@@ -525,7 +525,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         bool proj_match_direct = (key_proj == norm_proj);
         bool proj_match_combined = has_lot && (key_proj == proj_combined);
 
-        // 🔥 FALLBACK: Suffix match when proj is short (e.g. "A" matches "HEA").
+        //  FALLBACK: Suffix match when proj is short (e.g. "A" matches "HEA").
         //    This handles the COB AMMO flow where user enters I→A→LOT,
         //    storing proj="A" but CSV key is "HEA".
         bool proj_match_suffix = false;
@@ -538,7 +538,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
             }
         }
 
-        // 🔥 If LOT is provided, try combined match (e.g. HE+A=HEA).
+        //  If LOT is provided, try combined match (e.g. HE+A=HEA).
         //    Also try direct match if combined fails (e.g. HEA already includes lot).
         //    Also try suffix match for COB flow (e.g. "A" matches "HEA").
         if(has_lot)
@@ -557,7 +557,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         if(!interp(table, dist, q, t, d))
             continue;
 
-        // 🔥 VALIDACIÓN DE SOLUCIÓN
+        //  VALIDACIÓN DE SOLUCIÓN
         // Verificar que los valores son razonables antes de aceptar
         if(q <= 0 || t <= 0)
         {
@@ -633,7 +633,7 @@ static bool solveByCharge(const std::string& proj,const std::string& lot,double 
         bool match_direct2 = (key_proj2 == norm_proj2);
         bool match_combined2 = has_lot2 && (key_proj2 == proj_combined2);
 
-        // 🔥 FALLBACK: Suffix match (same as solveAuto)
+        //  FALLBACK: Suffix match (same as solveAuto)
         bool match_suffix2 = false;
         if(!match_direct2 && !match_combined2)
         {
@@ -673,7 +673,7 @@ static bool solveByCharge(const std::string& proj,const std::string& lot,double 
 }
 
 
-// 🔥 Compatibilidad con el resto del sistema
+//  Compatibilidad con el resto del sistema
 static bool solve(const std::string& proj,const std::string& lot,double dist,std::string& chg,double& qe,double& tof,double& drift)
 {
     if(manual_chg_enabled)
@@ -757,7 +757,7 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
     // Also handle case where proj already includes lot (e.g., "HEA"+"A" → use "HEA")
     if(proj_combined != "HEA" && proj == "HEA")
         proj_combined = "HEA";
-    // 🔥 FALLBACK: If proj is short (e.g. "A" from COB flow), check suffix of known types
+    //  FALLBACK: If proj is short (e.g. "A" from COB flow), check suffix of known types
     //    "A" → ends with "A" → "HEA"
     if(proj_combined != "HEA" && proj_combined != "HE")
     {
@@ -1541,7 +1541,7 @@ std::string BasicEngine::execute(const std::string& input)
 {
     std::string cmd = input;
 
-    // 🔥 BOOT SEQUENCE (SANTA BARBARA)
+    //  BOOT SEQUENCE (SANTA BARBARA)
     if(boot_mode)
     {
         std::string v = normStr(cmd);
@@ -1581,7 +1581,7 @@ std::string BasicEngine::execute(const std::string& input)
         return "DR EVIL\nMAIN (? 1 3 4 5 7 X *)";
     }
 
-    // 🔽 aquí sigue TODO tu sistema normal (NO TOCAR)
+    //  aquí sigue TODO tu sistema normal (NO TOCAR)
 
     auto renderFire = [&](bool useFFE)->std::string
 {
@@ -1592,7 +1592,7 @@ std::string BasicEngine::execute(const std::string& input)
     double base_alt = guns[base_piece_index].alt;
 
 // ===============================
-// 🔥 SHIFT VECTORIAL REAL (TARGET AJUSTADO)
+//  SHIFT VECTORIAL REAL (TARGET AJUSTADO)
 // ===============================
     double adj_tgt_e = tgt_e;
     double adj_tgt_n = tgt_n;
@@ -1627,7 +1627,7 @@ std::string BasicEngine::execute(const std::string& input)
         if(az < 0) az += 2*PI;
 
         double mils_raw = az * (6400 / (2 * PI));
-        // 🔥 CUANTIZACIÓN A 2 MILS (MIRAS ESTÁNDAR)
+        //  CUANTIZACIÓN A 2 MILS (MIRAS ESTÁNDAR)
         double mils = std::floor((mils_raw + 1.5) / 2.0) * 2.0;
 
         std::string chg = "";
@@ -1635,16 +1635,16 @@ std::string BasicEngine::execute(const std::string& input)
 
         double dist = dist_geom + reg_dist;
 
-        // 🔥 PRIMERO resolver balística
+        //  PRIMERO resolver balística
         bool solved = solve(ammo_proj_prop, ammo_proj_lot, dist, chg, qe, tof, drift);
 
-        // ✅ CALIBRAR QE/TOF AL HP-71B FÍSICO
+        //  CALIBRAR QE/TOF AL HP-71B FÍSICO
         // La FT Excel del US Army difiere ~98 mils de la realidad.
         // hp71bCalibrate() aplica la fórmula del equipo militar real.
         hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg, dist, qe, tof);
         
         // ================================
-        // 🔥 DRIFT: USAR DATOS FT REALES
+        //  DRIFT: USAR DATOS FT REALES
         // ================================
         // El drift del CSV ya viene de las tablas de tiro reales
         // Solo usar fórmula sintética si el drift es extremadamente bajo
@@ -1659,7 +1659,7 @@ std::string BasicEngine::execute(const std::string& input)
                 drift = 0.0001 * dist;
         }
 
-        // 🔥 AHORA sí calcular DEF correctamente
+        //  AHORA sí calcular DEF correctamente
 
         bool use_fm1_reverse = fm1_base_def_reverse || active_fm1_def_reverse;
 
@@ -1674,11 +1674,11 @@ std::string BasicEngine::execute(const std::string& input)
             def += reg_def + df_corr;
 
         // ================================
-        // 🔥 MÓDULO DEF FÍSICO MEJORADO
+        //  MÓDULO DEF FÍSICO MEJORADO
         // ================================
 
         // ================================
-        // 🔥 DEFLEXIÓN ACUMULADA 
+        //  DEFLEXIÓN ACUMULADA 
         // ================================
 
         double drift_accum = drift;  // drift del FT ya es el total de la trayectoria
@@ -1701,7 +1701,7 @@ std::string BasicEngine::execute(const std::string& input)
             qe_final += (ud_corr*0.05);
 
 // ===============================
-// 🔥 APLICAR OPEN (FALTABA)
+//  APLICAR OPEN (FALTABA)
 // ===============================
         if(sheaf_mode == "OPEN" && guns.size() > 1)
         {
@@ -1717,10 +1717,10 @@ std::string BasicEngine::execute(const std::string& input)
 
         def += drift_accum;
         def += jump_h;
-        // 🔥 REDONDEO HP71
+        //  REDONDEO HP71
         def = std::round(def);
 
-        // 🔥 normalizar AL FINAL
+        //  normalizar AL FINAL
         while(def < 0) def += 6400;
         while(def >= 6400) def -= 6400;
 
@@ -1756,7 +1756,7 @@ std::string BasicEngine::execute(const std::string& input)
         out<<"AZ "<<std::round(mils)<<"\n";
         std::string def_output;
 
-        // 🔥 NORMALIZAR DESPUÉS DEL AJUSTE FINAL
+        //  NORMALIZAR DESPUÉS DEL AJUSTE FINAL
         while(def < 0) def += 6400;
         while(def >= 6400) def -= 6400;
 
@@ -1780,7 +1780,7 @@ std::string BasicEngine::execute(const std::string& input)
             out<<"FUZE PDA\n\n";
         }
     }
-        // 🔥 GUARDAR ÚLTIMA SOLUCIÓN BASE (PARA REG)
+        //  GUARDAR ÚLTIMA SOLUCIÓN BASE (PARA REG)
 
         // usar la PIEZA BASE (correcto doctrinalmente)
         int i = base_piece_index;
@@ -1804,7 +1804,7 @@ std::string BasicEngine::execute(const std::string& input)
 
         bool solved_ref = solve(ammo_proj_prop, ammo_proj_lot, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
 
-        // ✅ CALIBRAR QE/TOF AL HP-71B FÍSICO (misma calibración que la ruta principal)
+        //  CALIBRAR QE/TOF AL HP-71B FÍSICO (misma calibración que la ruta principal)
         if(solved_ref)
             hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg_tmp, dist, qe_tmp, tof_tmp);
 
@@ -2168,7 +2168,7 @@ if(current_menu=="TARGET")
 {
     static int temp_knpt = 0;
 
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0)
@@ -2259,7 +2259,7 @@ if(current_menu=="TARGET")
         if(!v.empty())
             tgt_alt = std::stod(v);
 
-        // 🔥 GUARDAR EN MAPA
+        //  GUARDAR EN MAPA
         targets[temp_knpt] = {tgt_e, tgt_n, tgt_alt};
         current_knpt = temp_knpt;
 
@@ -2621,7 +2621,7 @@ if(current_menu=="TARGET")
 
         cob_current_index++;
 
-        // 🔥 RESET TEMPORALES PARA NUEVA PIEZA
+        //  RESET TEMPORALES PARA NUEVA PIEZA
         temp_dir = 0;
         temp_dist = 0;
         temp_iv = 0;
@@ -2820,7 +2820,7 @@ if(current_menu=="OBS")
 
 if(current_menu=="MAP_MODEL")
 {
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -2838,7 +2838,7 @@ if(current_menu=="MAP_MODEL")
 
     std::string v = normStr(cmd);
 
-    // 🔥 SI HAY VALOR → GUARDAR
+    //  SI HAY VALOR → GUARDAR
     if(!v.empty())
     {
         switch(input_stage)
@@ -2853,7 +2853,7 @@ if(current_menu=="MAP_MODEL")
         }
     }
 
-    // 🔥 SIEMPRE AVANZAR (ENTER o valor)
+    //  SIEMPRE AVANZAR (ENTER o valor)
     input_stage++;
 
     switch(input_stage)
@@ -2873,7 +2873,7 @@ if(current_menu=="MAP_MODEL")
             main_inputs.push_back("GZ " + std::to_string((int)map_gz));
             main_inputs.push_back("SPHER " + map_spher);
 
-            // 🔥 AUTO-DETECT LOCATION FROM MAP CENTER
+            //  AUTO-DETECT LOCATION FROM MAP CENTER
             double center_e = (map_e_max + map_e_min) / 2.0;
             double center_n = (map_n_max + map_n_min) / 2.0;
             
@@ -2885,7 +2885,7 @@ if(current_menu=="MAP_MODEL")
                 double wind_dir, wind_spd; // viento promedio
             };
             
-            // ⚠️ ACTUALIZAR con coordenadas reales del MAP MODEL cuando se confirmen
+            //  ACTUALIZAR con coordenadas reales del MAP MODEL cuando se confirmen
             ZoneAtm zones[] = {
                 {"ZAMBRANO",   456854, 1577256, 32.0, 80.0,   0, 3.4},
                 {"PINALEJO",   383483, 1649393, 25.0, 85.0,   0, 3.0},
@@ -2962,7 +2962,7 @@ if(current_menu=="MAP_MODEL")
 
     if(current_menu=="FM")
     {
-        // 🔥 VOLVER A CARGA AUTOMATICA
+        //  VOLVER A CARGA AUTOMATICA
         
         if(cmd=="AUTOCHG")
         {
@@ -2972,7 +2972,7 @@ if(current_menu=="MAP_MODEL")
             return "AUTO CHARGE ENABLED\nFM (? 1 2 3 4 S P X *)";
         }
 
-        // 🔥 STANAG CONFIG: CD0=value
+        //  STANAG CONFIG: CD0=value
         if(cmd.size() > 4 && cmd.substr(0, 4) == "CD0=")
         {
             try {
@@ -2995,7 +2995,7 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
-        // 🔥 STANAG CONFIG: V0_CHG=value (e.g. V0_6W=500)
+        //  STANAG CONFIG: V0_CHG=value (e.g. V0_6W=500)
         if(cmd.size() > 3 && cmd.substr(0, 3) == "V0_")
         {
             size_t eq = cmd.find('=');
@@ -3016,7 +3016,7 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
-        // 🔥 STANAG CONFIG: TEMP=temperature_in_Celsius
+        //  STANAG CONFIG: TEMP=temperature_in_Celsius
         if(cmd.size() > 5 && cmd.substr(0, 5) == "TEMP=")
         {
             try {
@@ -3033,7 +3033,7 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
-        // 🔥 STANAG CONFIG: HUM=humidity_percent
+        //  STANAG CONFIG: HUM=humidity_percent
         if(cmd.size() > 4 && cmd.substr(0, 4) == "HUM=")
         {
             try {
@@ -3050,7 +3050,7 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
-        // 🔥 STANAG CONFIG: WIND_DIR=direction (degrees FROM, 0=N, 90=E)
+        //  STANAG CONFIG: WIND_DIR=direction (degrees FROM, 0=N, 90=E)
         if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_DIR=")
         {
             try {
@@ -3067,7 +3067,7 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
-        // 🔥 STANAG CONFIG: WIND_SPD=speed (m/s)
+        //  STANAG CONFIG: WIND_SPD=speed (m/s)
         if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_SPD=")
         {
             try {
@@ -3084,7 +3084,7 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
-        // 🔥 STANAG CONFIG: FIRING_AZ=azimuth (degrees, 0=N, 90=E)
+        //  STANAG CONFIG: FIRING_AZ=azimuth (degrees, 0=N, 90=E)
         if(cmd.size() > 10 && cmd.substr(0, 10) == "FIRING_AZ=")
         {
             try {
@@ -3101,7 +3101,7 @@ if(current_menu=="MAP_MODEL")
             }
         }
 
-        // 🔥 STANAG CONFIG: SHOW (show current config)
+        //  STANAG CONFIG: SHOW (show current config)
         if(cmd == "SHOW")
         {
             std::stringstream ss;
@@ -3123,7 +3123,7 @@ if(current_menu=="MAP_MODEL")
             return ss.str();
         }
 
-        // 🔥 STANAG 4355 COMPARISON
+        //  STANAG 4355 COMPARISON
         if(cmd=="STANAG")
         {
             if(ammo_proj_prop.empty() || guns.empty() || (tgt_e == 0 && tgt_n == 0))
@@ -3147,7 +3147,7 @@ if(current_menu=="MAP_MODEL")
                                  chg_resolved, dist_calc) + "\nFM (? 1 2 3 4 S P X *)";
         }
 
-        // 🔥 STANAG CALIBRATION (tests cd0 vs FT data)
+        //  STANAG CALIBRATION (tests cd0 vs FT data)
         if(cmd=="STANAG_CAL")
         {
             return stanagCalibrate() + "\nFM (? 1 2 3 4 S P X *)";
@@ -3180,13 +3180,13 @@ if(current_menu=="MAP_MODEL")
             return "KNPT #:";
         }
 
-        if(cmd=="3")    // 🔥 FM3 DOCTRINAL
+        if(cmd=="3")    //  FM3 DOCTRINAL
         {
             current_menu = "SHIFT_PREV_DIR";
             return "PREV DIR:";
         }
 
-        if(cmd=="4")   // 🔥 FM4 E.A. Y P.M.I.
+        if(cmd=="4")   //  FM4 E.A. Y P.M.I.
         {
             current_menu = "FM4_LR";
             return "IMPACT L/R (ej: L50 o R50):";
@@ -3254,7 +3254,7 @@ if(current_menu=="MAP_MODEL")
             return out.str() + "FM (? 1 2 3 4 R E P X *)";
         }
 
-        // 🔥 DOCTRINAL: A = TODAS LAS PIEZAS (FFE)
+        //  DOCTRINAL: A = TODAS LAS PIEZAS (FFE)
         if(cmd=="A")
         {
             all_guns_command = true;
@@ -3272,7 +3272,7 @@ if(current_menu=="MAP_MODEL")
 
        if(cmd=="X")
         {
-            // 🔥 VALIDACIÓN DOCTRINAL PRO
+            //  VALIDACIÓN DOCTRINAL PRO
 
             bool has_cob = !guns.empty();
             bool has_target = !(tgt_e == 0 && tgt_n == 0);
@@ -3323,13 +3323,13 @@ if(current_menu=="MAP_MODEL")
             std::stringstream input_ss;
 
 
-            // 🔥 2. INPUTS DEL DISPARO
+            //  2. INPUTS DEL DISPARO
             for(const auto& s : last_inputs)
                 input_ss << s << "\n";
 
             shot.inputs = input_ss.str();
 
-            // 🔥 LIMPIAR SOLO inputs del disparo
+            //  LIMPIAR SOLO inputs del disparo
             last_inputs.clear();
 
 
@@ -3398,7 +3398,7 @@ if(current_menu=="MAP_MODEL")
 
 if(current_menu=="FM1_GRID")
 {
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -3513,7 +3513,7 @@ if(current_menu=="FM1_GRID")
 
 if(current_menu=="FM1_TRANSPORT")
 {
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -3682,7 +3682,7 @@ if(current_menu=="FM1_TRANSPORT")
 
 if(current_menu=="FM1_POLAR")
 {
-    // 🔙 BACK
+    //  BACK
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -3879,7 +3879,7 @@ if(current_menu=="FM1_POLAR")
         if(cmd=="N")
         {
             fire_phase = 4;
-            // 🔥 CALCULO PMI
+            //  CALCULO PMI
             double avg_lr=0, avg_ad=0, avg_ud=0;
 
             for(double v:fm4_lr) avg_lr+=v;
@@ -4288,7 +4288,7 @@ if(current_menu=="SHIFT")
         if(cmd=="OPEN")
         {
             sheaf_mode="OPEN";
-            current_menu="SHEAF_WIDTH"; // 🔥 NUEVO PASO
+            current_menu="SHEAF_WIDTH"; //  NUEVO PASO
             return "OPEN WIDTH (MILS):";
         }
 
@@ -4325,7 +4325,7 @@ if(current_menu=="SHIFT")
 
    if(current_menu=="REG")
 {
-        // 🔥 PREGUNTA REUTILIZAR REG
+        //  PREGUNTA REUTILIZAR REG
     if(input_stage == -1)
     {
         if(cmd == "Y")
@@ -4375,7 +4375,7 @@ if(current_menu=="SHIFT")
 
             current_knpt = knpt;
 
-            // 🔥 CARGAR TARGET DESDE MAIN 3
+            //  CARGAR TARGET DESDE MAIN 3
             tgt_e = targets[knpt].e;
             tgt_n = targets[knpt].n;
             tgt_alt = targets[knpt].alt;
@@ -4460,14 +4460,14 @@ if(current_menu=="SHIFT")
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_def_solution : std::stod(v);
 
-            // 🔥 GUARDAR VALOR ACTUAL
+            //  GUARDAR VALOR ACTUAL
             double reg_def_backup = reg_def;
 
-            // 🔥 FORZAR SIN REG
+            //  FORZAR SIN REG
             reg_def = 0;
 
             // ===============================
-            // 🔥 USAR MISMO TARGET AJUSTADO QUE renderFire
+            //  USAR MISMO TARGET AJUSTADO QUE renderFire
             // ===============================
             double adj_tgt_e = tgt_e;
             double adj_tgt_n = tgt_n;
@@ -4529,17 +4529,17 @@ if(current_menu=="SHIFT")
             while(def_real < 0) def_real += 6400;
             while(def_real >= 6400) def_real -= 6400;
 
-            // 🔥 RESTAURAR
+            //  RESTAURAR
             reg_def = reg_def_backup;
 
             // ================================
-            // 🔥 CORRECCIÓN REG REAL (CONV)
+            //  CORRECCIÓN REG REAL (CONV)
             // ================================
 
             // detectar si operador no corrigió
             if(std::abs(reg_input - last_def_solution) <= 1)
             {
-                // 🔥 calcular spread entre piezas
+                //  calcular spread entre piezas
                 double max_def = -1e9;
                 double min_def = 1e9;
 
@@ -5416,23 +5416,23 @@ if(current_menu=="DF_CORR")
 
     ss >> dir >> val;
 
-    // 🔥 DISTANCIA BASE
+    //  DISTANCIA BASE
     double base_dist = last_dist_solution;
 
     if(base_dist <= 0)
         return "NO BASE DIST";
 
-    // 🔥 convertir metros → mils
+    //  convertir metros → mils
     double mils = (val / base_dist) * 1000.0;
 
     // ===============================
-    // 🔥 ADD / DROP (CORREGIDO REAL)
+    //  ADD / DROP (CORREGIDO REAL)
     // ===============================
     if(dir=="ADD" || dir=="DROP")
     {
         double new_dist;
 
-    // 🔥 ACUMULACIÓN DOCTRINAL REAL
+    //  ACUMULACIÓN DOCTRINAL REAL
 
     if(dir=="ADD")
     {
@@ -5443,12 +5443,12 @@ if(current_menu=="DF_CORR")
         reg_dist -= val;
     }
 
-    // 🔥 reset QE correction
+    //  reset QE correction
     time_reg_correction = 0;
     }
 
     // ===============================
-    // 🔥 RIGHT / LEFT
+    //  RIGHT / LEFT
     // ===============================
     else if(dir=="RIGHT")
     {
