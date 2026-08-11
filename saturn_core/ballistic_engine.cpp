@@ -9,10 +9,6 @@ struct TableEntry
     double drift;
 };
 
-//////////////////////////////////////////////////
-//  TABLAS 105mm
-//////////////////////////////////////////////////
-
 static std::vector<TableEntry> table_105_C5 =
 {
     {10000,82.5,16.6,3.6},
@@ -27,10 +23,6 @@ static std::vector<TableEntry> table_105_C6 =
     {11000,85.0,16.6,3.6}
 };
 
-//////////////////////////////////////////////////
-//  TABLAS 155mm (ejemplo base)
-//////////////////////////////////////////////////
-
 static std::vector<TableEntry> table_155_M4 =
 {
     {10000,45.0,25.0,5.0},
@@ -38,26 +30,16 @@ static std::vector<TableEntry> table_155_M4 =
     {14000,55.0,32.0,7.0}
 };
 
-//////////////////////////////////////////////////
-//  SELECTOR AUTOMÁTICO
-//////////////////////////////////////////////////
-
 static std::vector<TableEntry>* selectTable(const std::string& charge)
 {
-    // 105 mm
+
     if(charge=="C5") return &table_105_C5;
     if(charge=="C6") return &table_105_C6;
 
-    // 155 mm
     if(charge=="M4") return &table_155_M4;
 
-    // default
     return &table_105_C5;
 }
-
-//////////////////////////////////////////////////
-//  INTERPOLACIÓN
-//////////////////////////////////////////////////
 
 BallisticResult BallisticEngine::getSolution(double dist, const std::string& charge)
 {

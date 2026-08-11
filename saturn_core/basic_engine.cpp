@@ -22,25 +22,22 @@ double BasicEngine::obs_gz = 0;
 #include <algorithm>
 #include <cctype>
 
-
 #ifndef _WIN32
 #include <unistd.h>
 #endif
 
 static std::string normStr(std::string s)
 {
-    //  eliminar caracteres basura (ENTER, TAB, etc)
+
     for(char& c : s)
     {
         if(c == '\n' || c == '\r' || c == '\t')
             c = ' ';
     }
 
-    // trim derecha
     while(!s.empty() && s.back() == ' ')
         s.pop_back();
 
-    // trim izquierda
     size_t i = 0;
     while(i < s.size() && s[i] == ' ')
         ++i;
@@ -51,20 +48,14 @@ static std::string normStr(std::string s)
     return s.substr(i);
 }
 
-//////////////////////////////////////////////////
-// TABLAS
-//////////////////////////////////////////////////
-
-// ======================= STRUCTS =======================
-
 struct Row
 {
     double d;
     double qe;
     double tof;
     double drift;
-    double angle;   // ángulo de impacto (grados)
-    double vterm;   // velocidad terminal (m/s)
+    double angle;
+    double vterm;
 };
 
 struct AmmoKey
@@ -80,11 +71,7 @@ struct AmmoKey
     }
 };
 
-// ======================= STORAGE =======================
-
 static std::map<AmmoKey, std::vector<Row>> firingTables;
-
-// ======================= CSV LOADER =======================
 
 static void loadTablesFromCSV(const std::string& filename)
 {
@@ -111,7 +98,7 @@ static void loadTablesFromCSV(const std::string& filename)
     return s.substr(i);
     };
 
-    std::getline(file, line); // header
+    std::getline(file, line);
 
     while(std::getline(file, line))
     {
@@ -131,8 +118,7 @@ static void loadTablesFromCSV(const std::string& filename)
         std::getline(ss, token, ','); row.qe = std::stod(trim(token));
         std::getline(ss, token, ','); row.tof = std::stod(trim(token));
         std::getline(ss, token, ','); row.drift = std::stod(trim(token));
-        
-        // Leer ANGLE y VTERM si existen (columnas 8 y 9)
+
         row.angle = 0.0;
         row.vterm = 0.0;
         if(std::getline(ss, token, ','))
@@ -143,7 +129,7 @@ static void loadTablesFromCSV(const std::string& filename)
         {
             try { row.vterm = std::stod(trim(token)); } catch(...) {}
         }
-        
+
         firingTables[key].push_back(row);
     }
 
@@ -153,51 +139,47 @@ static void loadTablesFromCSV(const std::string& filename)
             [](const Row& a,const Row& b){ return a.d < b.d; });
     }
 
-    //  VALIDACIÓN DE DATOS CARGADOS
     int warnings = 0;
     for(const auto& it : firingTables)
     {
         const AmmoKey& key = it.first;
         const std::vector<Row>& table = it.second;
-        
+
         for(size_t i = 0; i < table.size(); i++)
         {
-            // Verificar QE positivo
+
             if(table[i].qe <= 0)
             {
                 std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
                          << " D=" << table[i].d << " QE=" << table[i].qe << " (<=0)\n";
                 warnings++;
             }
-            
-            // Verificar TOF positivo
+
             if(table[i].tof <= 0)
             {
                 std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
                          << " D=" << table[i].d << " TOF=" << table[i].tof << " (<=0)\n";
                 warnings++;
             }
-            
-            // Verificar monotonicidad de QE (debe ser creciente)
+
             if(i > 0 && table[i].qe < table[i-1].qe - 1.0)
             {
                 std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
-                         << " D=" << table[i].d << " QE=" << table[i].qe 
+                         << " D=" << table[i].d << " QE=" << table[i].qe
                          << " < anterior " << table[i-1].qe << "\n";
                 warnings++;
             }
-            
-            // Verificar monotonicidad de TOF (debe ser creciente)
+
             if(i > 0 && table[i].tof < table[i-1].tof - 0.1)
             {
                 std::cout << "WARNING: " << key.artillery << " " << key.proj << " " << key.chg
-                         << " D=" << table[i].d << " TOF=" << table[i].tof 
+                         << " D=" << table[i].d << " TOF=" << table[i].tof
                          << " < anterior " << table[i-1].tof << "\n";
                 warnings++;
             }
         }
     }
-    
+
     if(warnings > 0)
     {
         std::cout << "TOTAL WARNINGS: " << warnings << "\n";
@@ -229,13 +211,7 @@ static std::string current_tgt_indicator = "";
 #define PI 3.14159265358979323846
 
 static int fire_phase = 0;
-// 0 BASE
-// 1 REG
-// 2 TIME REG
-// 3 SHIFT
-// 4 PMI
 
-//  COB DOCTRINAL VARIABLES
 static double gb_e = 0.0;
 static double gb_n = 0.0;
 static double gb_alt = 0.0;
@@ -248,14 +224,11 @@ static double temp_dir = 0.0;
 static double temp_dist = 0.0;
 static double temp_iv = 0.0;
 
-//  BASE PIECE DOCTRINAL (FALTABA)
 static int base_piece_index = 0;
 
-//  OPEN DOCTRINAL
-static double sheaf_width = 60.0; // ancho total en mils
+static double sheaf_width = 60.0;
 
-//  DOCTRINAL A
-static bool all_guns_command = false; 
+static bool all_guns_command = false;
 
 double map_e_max = 0;
 double map_e_min = 0;
@@ -263,7 +236,6 @@ double map_n_max = 0;
 double map_n_min = 0;
 double map_gz = 0;
 std::string map_spher = "";
-
 
 static int def_base = 3200;
 static std::string artillery_type = "155";
@@ -282,7 +254,6 @@ struct ObserverData
 
 static std::map<int, ObserverData> observers;
 
-//  MULTI OBS DOCTRINAL
 static int obs_expected_qty = 1;
 static int obs_current_index = 1;
 
@@ -304,11 +275,6 @@ struct ShotLog
 
 static std::vector<ShotLog> mission_log;
 
-
-//////////////////////////////////////////////////
-// DR EVIL
-//////////////////////////////////////////////////
-
 std::string drPrefix(const std::string& menu,const std::string& text)
 {
     if(menu=="MAIN" || menu=="FM")
@@ -316,12 +282,8 @@ std::string drPrefix(const std::string& menu,const std::string& text)
     return text;
 }
 
-//////////////////////////////////////////////////
-// ESTADO GLOBAL
-//////////////////////////////////////////////////
-
 static bool mission_active = false;
-//  CAMBIO DE CARGA DOCTRINAL
+
 static bool manual_chg_enabled = false;
 static std::string manual_chg_value = "";
 static bool chg_allowed = false;
@@ -335,15 +297,9 @@ static bool ffe_mode = false;
 static bool ammo_input_active = false;
 bool initializing = false;
 
-
-// SHEAF
 static std::string sheaf_mode = "CONV";
 
-//////////////////////////////////////////////////
-// FM1 VARIABLES
-//////////////////////////////////////////////////
-
-static int fm1_tgt_method = 0;   // 1=GRID, 2=TRANSPORT, 3=POLAR
+static int fm1_tgt_method = 0;
 static int fm1_temp_knpt = 0;
 
 static double fm1_temp_e = 0.0;
@@ -353,7 +309,6 @@ static bool fm1_base_def_reverse = false;
 static bool active_fm1_def_reverse = false;
 static bool active_fm1_transport_qe_shape = false;
 
-// FM1 GRID / TGT1 CLEAN FIRE
 static bool fm1_grid_clean_fire_pending = false;
 static double fm1_grid_reg_dist_backup = 0.0;
 static double fm1_grid_reg_def_backup = 0.0;
@@ -362,36 +317,24 @@ static double fm1_grid_time_reg_correction_backup = 0.0;
 static bool fm1_grid_ud_active_backup = false;
 static double fm1_grid_ud_corr_backup = 0.0;
 
-//////////////////////////////////////////////////
-// FM1 POLAR VARIABLES
-//////////////////////////////////////////////////
-
 static double fm1_pol_az = 0.0;
 static double fm1_pol_dist = 0.0;
 
-static char fm1_pol_ud = 'N';   // S o B
+static char fm1_pol_ud = 'N';
 static double fm1_pol_ud_val = 0.0;
-
-//////////////////////////////////////////////////
-// FM1 TRANSPORT VARIABLES
-//////////////////////////////////////////////////
 
 static int fm1_from_knpt = 0;
 
 static double fm1_tr_az = 0.0;
 
-static char fm1_tr_lr = 'N';   // I o D
+static char fm1_tr_lr = 'N';
 static double fm1_tr_lr_val = 0.0;
 
-static char fm1_tr_ad = 'N';   // + o -
+static char fm1_tr_ad = 'N';
 static double fm1_tr_ad_val = 0.0;
 
-static char fm1_tr_ud = 'N';   // S o B
+static char fm1_tr_ud = 'N';
 static double fm1_tr_ud_val = 0.0;
-
-//////////////////////////////////////////////////
-// VARIABLES REG / CORR
-//////////////////////////////////////////////////
 
 bool boot_mode = true;
 static double reg_dist = 0.0;
@@ -399,20 +342,12 @@ static double reg_def = 0.0;
 static double df_corr = 0.0;
 static double time_reg_correction = 0.0;
 
-//////////////////////////////////////////////////
-// SHIFT VARIABLES
-//////////////////////////////////////////////////
-
 static double shift_lr = 0.0;
 static double shift_ad = 0.0;
 static double shift_ud = 0.0;
 static double last_dist_solution = 0.0;
 static double last_def_solution = 0.0;
 static double last_qe_solution = 0.0;
-
-//////////////////////////////////////////////////
-// INSTANTANEOUS PDA / SHIFT CORR VARIABLES
-//////////////////////////////////////////////////
 
 static double inst_prev_dir = 0.0;
 static double inst_prev_lr = 0.0;
@@ -427,7 +362,6 @@ static double inst_lr_shift = 0.0;
 static double inst_ad_shift = 0.0;
 static double inst_ud_shift = 0.0;
 
-// SHIFT DOCTRINAL
 static std::string shift_prev_dir = "N";
 static double shift_prev_lr = 0.0;
 static double shift_prev_ad = 0.0;
@@ -435,7 +369,7 @@ static double shift_prev_ud = 0.0;
 
 static std::string shift_new_dir = "N";
 static double shift_angle = 0.0;
-//  REG MEMORY (FM2)
+
 static bool reg_data_available = false;
 
 static int last_knpt = 0;
@@ -445,10 +379,6 @@ static bool last_fuze_tia = false;
 static double last_reg_rg = 0.0;
 static double last_reg_def = 0.0;
 static bool time_reg_fuze_temporary = false;
-
-//////////////////////////////////////////////////
-// INTERPOLACION
-//////////////////////////////////////////////////
 
 static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,double& drift)
 {
@@ -466,18 +396,13 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
 
             double f = (d - a.d) / (b.d - a.d);
 
-            //  INTERPOLACIÓN CUADRÁTICA (3 puntos) - Manual HP-71B
-            // Cuando hay 3 puntos disponibles, usar interpolación cuadrática
-            // Fórmula: y = y0 + f*(y1-y0) + f*(f-1)/2 * (y0 - 2*y1 + y2)
             if(i + 1 < t.size())
             {
                 const Row& c = t[i+1];
                 double qe_quad = a.qe + f*(b.qe - a.qe) + f*(f-1)/2.0 * (a.qe - 2.0*b.qe + c.qe);
                 double tof_quad = a.tof + f*(b.tof - a.tof) + f*(f-1)/2.0 * (a.tof - 2.0*b.tof + c.tof);
                 double drift_quad = a.drift + f*(b.drift - a.drift) + f*(f-1)/2.0 * (a.drift - 2.0*b.drift + c.drift);
-                
-                // Validar que los valores cuadráticos son razonables
-                // (la interpolación cuadrática puede dar valores negativos en bordes)
+
                 if(qe_quad > 0 && tof_quad > 0)
                 {
                     qe = qe_quad;
@@ -486,8 +411,7 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
                     return true;
                 }
             }
-            
-            // Fallback: interpolación lineal
+
             qe = a.qe + f * (b.qe - a.qe);
             tof = a.tof + f * (b.tof - a.tof);
             drift = a.drift + f * (b.drift - a.drift);
@@ -499,10 +423,6 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
     return false;
 }
 
-//////////////////////////////////////////////////
-// SOLVER
-//////////////////////////////////////////////////
-
 static bool solveAuto(const std::string& proj,const std::string& lot,double dist,
                      std::string& chg,double& qe,double& tof,double& drift)
 {
@@ -513,11 +433,9 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         const AmmoKey& key = it->first;
         const std::vector<Row>& table = it->second;
 
-        //  FILTRO POR ARTILLERY
         if(normStr(key.artillery) != normStr(artillery_type))
             continue;
 
-        // Match PROJ against table, also try PROJ+LOT (e.g. "HE"+"A" = "HEA")
         std::string proj_combined = normStr(proj) + normStr(lot);
         bool has_lot = !normStr(lot).empty();
         std::string key_proj = normStr(key.proj);
@@ -526,9 +444,6 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         bool proj_match_direct = (key_proj == norm_proj);
         bool proj_match_combined = has_lot && (key_proj == proj_combined);
 
-        //  FALLBACK: Suffix match when proj is short (e.g. "A" matches "HEA").
-        //    This handles the COB AMMO flow where user enters I→A→LOT,
-        //    storing proj="A" but CSV key is "HEA".
         bool proj_match_suffix = false;
         if(!proj_match_direct && !proj_match_combined)
         {
@@ -539,9 +454,6 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
             }
         }
 
-        //  If LOT is provided, try combined match (e.g. HE+A=HEA).
-        //    Also try direct match if combined fails (e.g. HEA already includes lot).
-        //    Also try suffix match for COB flow (e.g. "A" matches "HEA").
         if(has_lot)
         {
             if(!proj_match_combined && !proj_match_direct && !proj_match_suffix)
@@ -558,40 +470,29 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         if(!interp(table, dist, q, t, d))
             continue;
 
-        //  VALIDACIÓN DE SOLUCIÓN
-        // Verificar que los valores son razonables antes de aceptar
         if(q <= 0 || t <= 0)
         {
-            // Solo mostrar warning en debug mode
-            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
-            //          << " D=" << dist << " QE=" << q << " TOF=" << t << " (valores <=0)\n";
+
             continue;
         }
-        
-        // Verificar QE no excesivo (máximo ~1200 mils para artillería)
+
         if(q > 1200)
         {
-            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
-            //          << " D=" << dist << " QE=" << q << " (>1200)\n";
+
             continue;
         }
-        
-        // Verificar TOF no excesivo (máximo ~120 segundos)
+
         if(t > 120)
         {
-            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
-            //          << " D=" << dist << " TOF=" << t << " (>120s)\n";
+
             continue;
         }
-        
-        // Verificar que TOF es razonable para la distancia
-        // TOF típico: ~5s por km para 155mm, ~4s por km para 105mm
+
         double expected_tof_min = dist / 1000.0 * 3.0;
         double expected_tof_max = dist / 1000.0 * 8.0;
         if(t < expected_tof_min || t > expected_tof_max)
         {
-            // std::cout << "RECHAZO: " << key.artillery << " " << key.proj << " " << key.chg
-            //          << " D=" << dist << " TOF=" << t << " (fuera de rango esperado)\n";
+
             continue;
         }
 
@@ -600,9 +501,6 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         double candidate_drift = d;
         std::string candidate_chg = key.chg;
 
-        // Prioridad doctrinal:
-        // 1. La carga más baja que resuelva la distancia
-        // 2. Si hay empate, menor QE
         if(!found || candidate_chg < chg || (candidate_chg == chg && candidate_qe < qe))
         {
             qe = candidate_qe;
@@ -634,7 +532,6 @@ static bool solveByCharge(const std::string& proj,const std::string& lot,double 
         bool match_direct2 = (key_proj2 == norm_proj2);
         bool match_combined2 = has_lot2 && (key_proj2 == proj_combined2);
 
-        //  FALLBACK: Suffix match (same as solveAuto)
         bool match_suffix2 = false;
         if(!match_direct2 && !match_combined2)
         {
@@ -673,8 +570,6 @@ static bool solveByCharge(const std::string& proj,const std::string& lot,double 
     return false;
 }
 
-
-//  Compatibilidad con el resto del sistema
 static bool solve(const std::string& proj,const std::string& lot,double dist,std::string& chg,double& qe,double& tof,double& drift)
 {
     if(manual_chg_enabled)
@@ -683,21 +578,12 @@ static bool solve(const std::string& proj,const std::string& lot,double dist,std
     return solveAuto(proj,lot,dist,chg,qe,tof,drift);
 }
 
-//////////////////////////////////////////////////
-// SITE
-//////////////////////////////////////////////////
-
 static double computeSite(double iv,double dist)
 {
     if(dist==0) return 0;
     return (iv/dist)*1000.0*1.0186;
 }
 
-//////////////////////////////////////////////////
-// HP-71B CALIBRATION
-//////////////////////////////////////////////////
-
-// Extract numeric charge from "6W" -> 6
 static int extractChargeNumber(const std::string& chg)
 {
     std::string num;
@@ -711,16 +597,12 @@ static int extractChargeNumber(const std::string& chg)
     catch(...) { return 0; }
 }
 
-// Smoothstep helper for calibration
 static double smoothstepCal(double edge0, double edge1, double x)
 {
     double t = (std::max)(0.0, (std::min)(1.0, (x - edge0) / (edge1 - edge0)));
     return t * t * (3.0 - 2.0 * t);
 }
 
-// Low curve factor for HEA CHG=6 — exact port from generar_tablas.py
-// Returns factor 0..1 that is then applied as: qe *= 1.0 - (0.075 * factor)
-// Range: 9000-10000m only; factor=0 outside this range
 static double chg6LowCurveFactor(double dist_m)
 {
     const double start = 9000.0;
@@ -740,26 +622,21 @@ static double chg6LowCurveFactor(double dist_m)
     return 1.0 - smoothstepCal(fade_start, end, dist_m);
 }
 
-// HP-71B calibration: adjust FT-derived QE/TOF to match physical calculator
-// Only applies to 155mm; 105mm FT data already matches HP-71B
 static void hp71bCalibrate(int art_type, const std::string& proj, const std::string& lot,
                            const std::string& chg, double dist_m, double& qe, double& tof)
 {
-    if(art_type != 155) return;  // only calibrate 155mm
-    
-    // Parameters from old generar_tablas.py (commit 3ff1ecb)
+    if(art_type != 155) return;
+
     const double base = 39.5;
     const double chg_scale = 13.2;
     double curve, power, qe_bias, tof_scale, tof_bias;
-    
-    // Determine projectile type and charge
+
     int chg_num = extractChargeNumber(chg);
-    std::string proj_combined = proj + lot;  // e.g., "HE"+"A" = "HEA"
-    // Also handle case where proj already includes lot (e.g., "HEA"+"A" → use "HEA")
+    std::string proj_combined = proj + lot;
+
     if(proj_combined != "HEA" && proj == "HEA")
         proj_combined = "HEA";
-    //  FALLBACK: If proj is short (e.g. "A" from COB flow), check suffix of known types
-    //    "A" → ends with "A" → "HEA"
+
     if(proj_combined != "HEA" && proj_combined != "HE")
     {
         if(proj.size() <= 3 && proj.size() < std::string("HEA").size())
@@ -769,14 +646,14 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
                 proj_combined = "HEA";
         }
     }
-    
+
     if(proj_combined == "HEA")
     {
         if(chg_num == 6)
         {
             curve = 0.30;
             power = 1.11;
-            qe_bias = -30.0;   // tuned: was -38.0, real fire Bateria Bravo showed +8.7 TIME REG
+            qe_bias = -30.0;
             tof_scale = 252.0;
             tof_bias = -1.20;
         }
@@ -790,7 +667,7 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
         }
         else
         {
-            // Other HEA charges: use CHG=5/7 parameters as default
+
             curve = 0.32;
             power = 1.08;
             qe_bias = -5.0;
@@ -798,7 +675,7 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
             tof_bias = -0.30;
         }
     }
-    else  // HE (all charges)
+    else
     {
         curve = 0.32;
         power = 1.0;
@@ -806,40 +683,25 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
         tof_scale = 252.0;
         tof_bias = 0.0;
     }
-    
-    // Compute HP-71B QE using old formula
+
     double km = dist_m / 1000.0;
     double hp71_qe = ((base * km) + (curve * km * km) + (chg_num * chg_scale)) / power + qe_bias;
-    
-    // Compute HP-71B TOF using old formula
+
     double hp71_tof = dist_m / (tof_scale * power) + chg_num * 0.16 + tof_bias;
-    
-    // Apply low curve factor for HEA CHG=6 (exact port from generar_tablas.py)
+
     if(proj_combined == "HEA" && chg_num == 6)
     {
         double low_factor = chg6LowCurveFactor(dist_m);
         hp71_qe *= 1.0 - (0.075 * low_factor);
         hp71_tof *= 1.0 - (0.135 * low_factor);
     }
-    
-    // Replace FT values with HP-71B calibrated values
+
     qe = hp71_qe;
     tof = hp71_tof;
 }
 
-//////////////////////////////////////////////////
-// STANAG 4355 BALLISTIC MODEL (MPM)
-// Numerical trajectory integration using G1 drag curve
-// cd0=0.157 calibrated against Argentine real fire (BATERIA BRAVO 155mm 1BAC)
-// FT155-AM-2 is for US guns (M109/M198/M777, L39-40), NOT CITER L33
-//////////////////////////////////////////////////
-
 namespace Stanag4355 {
 
-    // =============================================
-    // G1 STANDARD PROJECTILE DRAG CURVE
-    // Cd vs Mach number (from McCoy / STANAG)
-    // =============================================
     static const int G1_N = 25;
     static const double G1_M[G1_N] = {
         0.00, 0.20, 0.40, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95,
@@ -851,9 +713,8 @@ namespace Stanag4355 {
         0.4500, 0.4700, 0.4700, 0.4600, 0.4500, 0.4300, 0.4100, 0.3900, 0.3750,
         0.3600, 0.3500, 0.3400, 0.3300, 0.3150, 0.3000, 0.2600
     };
-    static const double G1_CD0_REF = 0.2300;  // Cd at M=0 for G1 standard
+    static const double G1_CD0_REF = 0.2300;
 
-    // Interpolate G1 drag curve
     static double g1_cd(double mach)
     {
         if(mach <= G1_M[0]) return G1_Cd[0];
@@ -870,35 +731,29 @@ namespace Stanag4355 {
         return G1_Cd[G1_N-1];
     }
 
-    // =============================================
-    // STANDARD ATMOSPHERE (STANAG 4355)
-    // Troposphere only (0-11000m)
-    // =============================================
     struct AtmoState {
-        double T;      // Temperature (K)
-        double P;      // Pressure (Pa)
-        double rho;    // Density (kg/m³)
-        double a;      // Speed of sound (m/s)
+        double T;
+        double P;
+        double rho;
+        double a;
     };
 
-    // Atmosphere config (set via TEMP= HUM= commands or MAP MODEL auto-detect)
-    static double cfg_temp = 28.0;     // ground temperature (°C) — Honduras average
-    static double cfg_humidity = 75.0;  // relative humidity (0-100%) — Honduras average
+    static double cfg_temp = 28.0;
+    static double cfg_humidity = 75.0;
 
-    // Wind config (set via WIND_DIR= WIND_SPD= commands or MAP MODEL auto-detect)
-    static double cfg_wind_dir = 0.0;   // wind direction FROM (degrees, 0=N, 90=E)
-    static double cfg_wind_spd = 2.5;   // wind speed (m/s) — Honduras average
-    static double cfg_firing_az = 0.0;  // firing azimuth (degrees, 0=N, 90=E)
+    static double cfg_wind_dir = 0.0;
+    static double cfg_wind_spd = 2.5;
+    static double cfg_firing_az = 0.0;
 
     static AtmoState atmosphere(double h_m)
     {
-        // Use configurable temperature (°C → K)
-        const double T0 = 273.15 + cfg_temp;  // Sea level temp (K)
-        const double P0 = 101325.0;           // Sea level pressure (Pa)
-        const double L  = 0.0065;             // Temperature lapse rate (K/m)
-        const double R  = 287.05;             // Gas constant J/(kg·K)
-        const double g  = 9.80665;            // Gravity (m/s²)
-        const double gamma = 1.4;             // Cp/Cv for air
+
+        const double T0 = 273.15 + cfg_temp;
+        const double P0 = 101325.0;
+        const double L  = 0.0065;
+        const double R  = 287.05;
+        const double g  = 9.80665;
+        const double gamma = 1.4;
 
         double h = (h_m < 0) ? 0 : h_m;
         if(h > 11000.0) h = 11000.0;
@@ -908,15 +763,11 @@ namespace Stanag4355 {
         s.P   = P0 * pow(s.T / T0, g / (R * L));
         s.rho = s.P / (R * s.T);
 
-        // Humidity correction: moist air is less dense
-        // At high humidity, water vapor (MW=18) replaces dry air (MW=29)
-        // This reduces density by ~3-4% at 80% RH, 32°C
         if(cfg_humidity > 0.0 && s.T > 273.15) {
-            // Saturation vapor pressure (Tetens formula)
+
             double es = 610.78 * exp(17.27 * (s.T - 273.15) / (s.T - 35.86));
-            double pv = (cfg_humidity / 100.0) * es;  // actual vapor pressure
-            // Density correction factor (approximate)
-            // ρ_moist = ρ_dry * (1 - 0.378 * pv / P)
+            double pv = (cfg_humidity / 100.0) * es;
+
             s.rho = s.rho * (1.0 - 0.378 * pv / s.P);
         }
 
@@ -924,88 +775,55 @@ namespace Stanag4355 {
         return s;
     }
 
-    // =============================================
-    // PROJECTILE DATA: M107 155mm
-    // =============================================
     struct Projectile155 {
-        double mass;      // kg
-        double caliber;   // m
-        double area;      // reference area (m²)
-        double v0;        // muzzle velocity (m/s)
-        double cd0;       // drag factor (from STANAG validation)
+        double mass;
+        double caliber;
+        double area;
+        double v0;
+        double cd0;
     };
 
-    // =============================================
-    // CONFIGURABLE PARAMETERS (set via CD0= V0= TEMP= HUM= commands)
-    //
-    // GUN: M198 (L/39, towed) — Honduras
-    // PROJ:  M107 HE (43 kg, NATO standard 155mm)
-    // CHARGES: M4A2 (White Bag)
-    //
-    // V0 values from FT 155-AM-2 C-5 (Sept 2006)
-    // M198 corrections applied: 6W=+1, 7W=+3 vs M109A5 standard
-    //
-    // Atmosphere: configurable via TEMP= and HUM=
-    //   Default: ISA (15°C, 0% humidity)
-    //   Zambrano example: TEMP=32 HUM=80
-    // =============================================
-    static double cfg_cd0 = 0.157;    // cd0 calibrated for CITER L33 + M107
-    static std::map<std::string, double> cfg_v0;  // per-charge v0 overrides
+    static double cfg_cd0 = 0.157;
+    static std::map<std::string, double> cfg_v0;
 
     static Projectile155 default_m107()
     {
         Projectile155 p;
-        p.mass    = 43.2;              // M107 HE 155mm (NATO standard)
+        p.mass    = 43.2;
         p.caliber = 0.155;
-        p.area    = 3.14159265 * pow(p.caliber / 2.0, 2);  // 0.01887 m²
-        p.v0      = 827.0;             // M107 standard muzzle velocity (Charge 8 super)
-        p.cd0     = cfg_cd0;           // configurable, default 0.157 for CITER L33
+        p.area    = 3.14159265 * pow(p.caliber / 2.0, 2);
+        p.v0      = 827.0;
+        p.cd0     = cfg_cd0;
         return p;
     }
 
-    // =============================================
-    // CHARGE → MUZZLE VELOCITY TABLE
-    //
-    // V0 values from FT 155-AM-2 C-5 (Sept 2006)
-    // Standard: M109A5, with corrections for M198
-    //
-    // M4A2 propelling charges (White Bag)
-    // =============================================
     static double charge_to_v0(const std::string& chg)
     {
-        // Check for user override first
+
         auto it = cfg_v0.find(chg);
         if(it != cfg_v0.end()) return it->second;
 
-        // M4A2 Green Bag (G) charges — M777
         if(chg == "3G") return 279.0;
         if(chg == "4G") return 320.0;
         if(chg == "5G") return 382.0;
 
-        // M4A2 White Bag (W) charges — M198 FT values (FT 155-AM-2 C-5)
-        // M198 corrections: 6W=+1, 7W=+3 vs M109A5 standard
         if(chg == "3W") return 295.0;
         if(chg == "4W") return 335.0;
         if(chg == "5W") return 395.0;
         if(chg == "6W") return 476.0;
         if(chg == "7W") return 574.0;
 
-        // M119A1 red bag (R) — extended range
         if(chg == "7R") return 689.0;
 
-        // Charge 8 super (M119A2 / M203) — full charge
         if(chg == "8S") return 827.0;
 
-        // Parse numeric-only charges (e.g. "6" → treat as 6W)
         int num = 0;
         for(char c : chg) { if(std::isdigit(c)) num = num * 10 + (c - '0'); }
         if(num >= 3 && num <= 7) return charge_to_v0(std::to_string(num) + "W");
 
-        // Default: full charge
         return 827.0;
     }
 
-    // Get charge name for display
     static const char* charge_name(double v0)
     {
         if(v0 <= 280) return "3G";
@@ -1020,33 +838,22 @@ namespace Stanag4355 {
         return "8S";
     }
 
-    // =============================================
-    // TRAJECTORY STATE
-    // =============================================
     struct State {
-        double x;       // horizontal (m)
-        double y;       // vertical (m)
-        double vx;      // horizontal velocity (m/s)
-        double vy;      // vertical velocity (m/s)
+        double x;
+        double y;
+        double vx;
+        double vy;
     };
 
-    // =============================================
-    // EQUATIONS OF MOTION (2D, with wind)
-    // =============================================
     static State derivatives(const State& s, const Projectile155& proj)
     {
         AtmoState atmo = atmosphere(s.y);
 
-        // Wind component along firing direction (x-axis)
-        // wind_dir = direction wind is FROM (degrees, 0=N)
-        // firing_az = direction we're firing (degrees, 0=N)
-        // Wind velocity direction = wind_dir + 180 (direction wind is moving TO)
         double wind_vel_dir = cfg_wind_dir + 180.0;
         if(wind_vel_dir >= 360.0) wind_vel_dir -= 360.0;
         double wind_az_diff = (wind_vel_dir - cfg_firing_az) * PI / 180.0;
-        double wind_x = cfg_wind_spd * cos(wind_az_diff);  // positive = with projectile
+        double wind_x = cfg_wind_spd * cos(wind_az_diff);
 
-        // Velocity relative to air (wind affects horizontal component)
         double v_rel_x = s.vx - wind_x;
         double v_rel_y = s.vy;
         double v_rel = sqrt(v_rel_x * v_rel_x + v_rel_y * v_rel_y);
@@ -1066,20 +873,15 @@ namespace Stanag4355 {
         double cd_g1 = g1_cd(mach);
         double cd = proj.cd0 * (cd_g1 / G1_CD0_REF);
 
-        // Drag force based on relative velocity
         double Fd = 0.5 * atmo.rho * v_rel * v_rel * cd * proj.area;
         double a_drag = Fd / proj.mass;
 
-        // Apply drag in direction opposite to relative velocity
         ds.vx = -a_drag * (v_rel_x / v_rel);
         ds.vy = -9.80665 - a_drag * (v_rel_y / v_rel);
 
         return ds;
     }
 
-    // =============================================
-    // RK4 INTEGRATION (single step)
-    // =============================================
     static State rk4_step(const State& s, double dt, const Projectile155& proj)
     {
         State k1 = derivatives(s, proj);
@@ -1114,18 +916,12 @@ namespace Stanag4355 {
         return result;
     }
 
-    // =============================================
-    // COMPUTE FULL TRAJECTORY
-    // Returns range (m) and TOF (s)
-    // =============================================
     static void compute_trajectory(double theta_rad, const Projectile155& proj,
                                     double& range, double& tof)
     {
-        const double dt = 0.005;  // 5ms step for accuracy
-        // NOTE: g_elev stays at 0 because FT data is normalized to gun-level.
-        // Atmosphere uses ISA sea-level as baseline. TEMP/HUM corrections
-        // handle real-world density variations.
-        const double g_elev = 0.0;  // gun elevation (FT baseline = sea level)
+        const double dt = 0.005;
+
+        const double g_elev = 0.0;
 
         State s;
         s.x  = 0;
@@ -1136,15 +932,13 @@ namespace Stanag4355 {
         tof = 0;
         range = 0;
 
-        // Integrate until projectile hits ground (y < 0)
-        for(int i = 0; i < 200000; i++)  // safety limit: 1000s max
+        for(int i = 0; i < 200000; i++)
         {
             State next = rk4_step(s, dt, proj);
 
-            // Ground impact detection
             if(next.y < 0 && s.y >= 0)
             {
-                // Linear interpolation to find exact impact point
+
                 double frac = s.y / (s.y - next.y);
                 range = s.x + frac * (next.x - s.x);
                 tof = tof + frac * dt;
@@ -1154,7 +948,6 @@ namespace Stanag4355 {
             s = next;
             tof += dt;
 
-            // Safety: abort if going too far or too long
             if(tof > 200.0 || s.x > 25000.0)
             {
                 range = s.x;
@@ -1165,11 +958,6 @@ namespace Stanag4355 {
         range = s.x;
     }
 
-    // =============================================
-    // QE SOLVER: Find launch angle for given range
-    // Uses Brent's method (bracketed root finding)
-    // Returns QE in mils (HP-71B format)
-    // =============================================
     static double solve_qe(double target_range_m, const Projectile155& proj,
                            double& out_tof)
     {
@@ -1177,7 +965,6 @@ namespace Stanag4355 {
         const double DEG2RAD = pi / 180.0;
         const double RAD2MILS = 6400.0 / (2.0 * pi);
 
-        // Phase 1: Scan to find max range and its angle (2° steps for speed)
         double best_range = 0, best_angle_rad = 0.35;
         double best_tof_scan = 0;
         for(int deg = 1; deg <= 59; deg += 2)
@@ -1193,16 +980,13 @@ namespace Stanag4355 {
             }
         }
 
-        // If target is beyond max range, return max range angle
         if(target_range_m >= best_range)
         {
             out_tof = best_tof_scan;
             return best_angle_rad * RAD2MILS;
         }
 
-        // Phase 2: Binary search on the LOW side (ascending part of range curve)
-        // Range increases from 0° to best_angle_rad
-        double lo_rad = 0.001;  // nearly 0°
+        double lo_rad = 0.001;
         double hi_rad = best_angle_rad;
 
         for(int iter = 0; iter < 25; iter++)
@@ -1225,27 +1009,20 @@ namespace Stanag4355 {
         return final_rad * RAD2MILS;
     }
 
-} // namespace Stanag4355
-
-//////////////////////////////////////////////////
-// STANAG COMPARISON HELPER
-// Runs both HP-71B and STANAG for same conditions
-//////////////////////////////////////////////////
+}
 
 static std::string stanagCompare(int art_type, const std::string& proj, const std::string& lot,
                                   const std::string& chg, double dist_m)
 {
     std::stringstream out;
 
-    // === HP-71B RESULT (current calibrated) ===
     double qe_hp71 = 0, tof_hp71 = 0;
     {
-        // Run hp71bCalibrate with dummy values
+
         double qe_tmp = 0, tof_tmp = 0;
         int chg_num = 0;
         for(char c : chg) { if(std::isdigit(c)) chg_num = chg_num * 10 + (c - '0'); }
 
-        // Quick HP-71B calc
         const double base = 39.5, chg_scale = 13.2;
         double km = dist_m / 1000.0;
         double curve = 0.30, power = 1.11, qe_bias = -30.0;
@@ -1253,36 +1030,25 @@ static std::string stanagCompare(int art_type, const std::string& proj, const st
         tof_hp71 = dist_m / (252.0 * power) + chg_num * 0.16 - 1.20;
     }
 
-    // === STANAG 4355 RESULT ===
     double qe_stanag = 0, tof_stanag = 0;
     if(art_type == 155)
     {
         Stanag4355::Projectile155 proj_data = Stanag4355::default_m107();
-        proj_data.v0 = Stanag4355::charge_to_v0(chg);  // Scale v0 by charge
+        proj_data.v0 = Stanag4355::charge_to_v0(chg);
 
         qe_stanag = Stanag4355::solve_qe(dist_m, proj_data, tof_stanag);
     }
 
-    // === SPIN DRIFT (M107 155mm, right-hand twist) ===
-    // Formula: SD (mils) = K * range_km^2
-    // K ≈ 0.015 for M107 (from Firing Tables analysis)
-    // Drifts to the RIGHT of the line of fire
     double range_km = dist_m / 1000.0;
-    double spin_drift = 0.015 * range_km * range_km;  // mils, right
+    double spin_drift = 0.015 * range_km * range_km;
 
-    // === CORIOLIS EFFECT ===
-    // Formula: C = ω_e * T * sin(lat) * cos(az) (simplified for east-west)
-    // ω_e = 7.2921e-5 rad/s (Earth rotation)
-    // For Honduras (lat ≈ 14°N)
-    const double omega_e = 7.2921e-5;  // rad/s
-    const double lat_arg = 14.0 * 3.14159265 / 180.0;  // Honduras, radians
-    // Coriolis deflection (mils) — depends on azimuth of fire
-    // Simplified: assume fire to the east (az=90°), max effect
+    const double omega_e = 7.2921e-5;
+    const double lat_arg = 14.0 * 3.14159265 / 180.0;
+
     double coriolis = omega_e * tof_stanag * std::sin(lat_arg) * dist_m / 100.0;
-    // Convert from meters to mils: deflection(mils) = deflection(m) * 6400 / range(m)
+
     if(dist_m > 0) coriolis = coriolis * 6400.0 / dist_m;
 
-    // === FORMAT OUTPUT ===
     out << "STANAG 4355 vs HP-71B\n";
     out << "DIST: " << (int)dist_m << "m CHG: " << chg << "\n";
     out << "HP-71B  QE=" << std::round(qe_hp71 * 10) / 10
@@ -1306,17 +1072,12 @@ static std::string stanagCompare(int art_type, const std::string& proj, const st
     return out.str();
 }
 
-//////////////////////////////////////////////////
-// STANAG CALIBRATION — tests cd0 values against FT data
-//////////////////////////////////////////////////
-
 static std::string stanagCalibrate()
 {
     std::stringstream out;
     out << "STANAG 4355 CALIBRATION v2\n";
     out << "cd0 vs FT Excel (155 HEA)\n\n";
 
-    // Collect test points
     struct TestPt { std::string chg; double v0; double dist; double qe_ft; bool is_G; };
     std::vector<TestPt> pts;
 
@@ -1352,12 +1113,10 @@ static std::string stanagCalibrate()
     for(const auto& p : pts) { if(p.is_G) n_G_total++; else n_W_total++; }
     out << "Test points: " << pts.size() << " (G:" << n_G_total << " W:" << n_W_total << ")\n\n";
 
-    // === PHASE 1: Single cd0 scan (RMSE + MINIMAX) ===
-    // Cache errors for split search
     const int N_CD0 = 15;
     const int N_PTS = (int)pts.size();
     double cd0_vals[N_CD0];
-    double cached_err[N_CD0][96]; // max 96 points
+    double cached_err[N_CD0][96];
     int n_pts = N_PTS;
     if(n_pts > 96) n_pts = 96;
 
@@ -1410,9 +1169,6 @@ static std::string stanagCalibrate()
         out << buf << "\n";
     }
 
-    // === PHASE 2: Split G/W — using cached errors (no extra solve_qe!) ===
-    // Now do fine search around the best coarse values
-    // First find the best coarse G and W indices
     int best_gi = 0, best_wi = 0;
     double best_split_rmse = best_rmse_val;
     for(int gi = 0; gi < ci; gi++)
@@ -1434,7 +1190,6 @@ static std::string stanagCalibrate()
         }
     }
 
-    // Fine search: ±1 step (0.001) around best coarse values — fast
     double best_G = cd0_vals[best_gi], best_W = cd0_vals[best_wi];
     for(int delta = -1; delta <= 1; delta++)
     {
@@ -1445,7 +1200,6 @@ static std::string stanagCalibrate()
             double cd0w = cd0_vals[best_wi] + delta2 * 0.001;
             if(cd0w < 0.130 || cd0w > 0.200) continue;
 
-            // Need to compute fresh — fine grid not in cache
             double ss = 0;
             for(int pi = 0; pi < n_pts; pi++)
             {
@@ -1477,10 +1231,6 @@ static std::string stanagCalibrate()
     return out.str();
 }
 
-//////////////////////////////////////////////////
-// PARSER U/D
-//////////////////////////////////////////////////
-
 static bool parseUD(const std::string& cmd,double& value_out)
 {
     if(cmd.empty()) return false;
@@ -1495,7 +1245,7 @@ static bool parseUD(const std::string& cmd,double& value_out)
         }
         catch(...)
         {
-            // sigue abajo
+
         }
     }
 
@@ -1519,10 +1269,6 @@ static bool parseUD(const std::string& cmd,double& value_out)
     return false;
 }
 
-//////////////////////////////////////////////////
-// TIME STAMP
-//////////////////////////////////////////////////
-
     std::string getCurrentTime()
     {
         std::time_t now = std::time(nullptr);
@@ -1534,26 +1280,19 @@ static bool parseUD(const std::string& cmd,double& value_out)
         return ss.str();
     }
 
-//////////////////////////////////////////////////
-// EXECUTE
-//////////////////////////////////////////////////
-
 std::string BasicEngine::execute(const std::string& input)
 {
     std::string cmd = input;
 
-    //  BOOT SEQUENCE (SANTA BARBARA)
     if(boot_mode)
     {
         std::string v = normStr(cmd);
 
-        // Primera pantalla
         if(v.empty())
         {
             return "SANTA BARBARA\n>";
         }
 
-        // Usuario escribe RUNBUCS
         if(v == "RUNBUCS")
         {
             boot_mode = false;
@@ -1562,18 +1301,9 @@ std::string BasicEngine::execute(const std::string& input)
             return "INITIALIZE";
         }
 
-        // Cualquier otro comando
         return "SANTA BARBARA\n>";
     }
 
-    // TRANSICION AUTOMATICA DESPUES DE INITIALIZE
-    //
-    // IMPORTANTE:
-    // El engine NO debe dormir ni congelar la aplicacion aqui.
-    // La espera de 2 segundos la hace la interfaz.
-    //
-    // Cuando la interfaz mande una entrada vacia despues del timer,
-    // este bloque cambia el sistema a MAIN.
     if(initializing)
     {
         initializing = false;
@@ -1581,8 +1311,6 @@ std::string BasicEngine::execute(const std::string& input)
 
         return "DR EVIL\nMAIN (? 1 3 4 5 7 X *)";
     }
-
-    //  aquí sigue TODO tu sistema normal (NO TOCAR)
 
     auto renderFire = [&](bool useFFE)->std::string
 {
@@ -1592,9 +1320,6 @@ std::string BasicEngine::execute(const std::string& input)
     double base_n = guns[base_piece_index].n;
     double base_alt = guns[base_piece_index].alt;
 
-// ===============================
-//  SHIFT VECTORIAL REAL (TARGET AJUSTADO)
-// ===============================
     double adj_tgt_e = tgt_e;
     double adj_tgt_n = tgt_n;
 
@@ -1602,11 +1327,9 @@ std::string BasicEngine::execute(const std::string& input)
     {
         double dir_rad = shift_angle * (2.0 * PI / 6400.0);
 
-        // Vector A/D real: sobre la linea pieza-target.
         double ad_e = std::sin(dir_rad);
         double ad_n = std::cos(dir_rad);
 
-        // Vector L/R real: perpendicular a la linea pieza-target.
         double lr_e = std::cos(dir_rad);
         double lr_n = -std::sin(dir_rad);
 
@@ -1628,7 +1351,7 @@ std::string BasicEngine::execute(const std::string& input)
         if(az < 0) az += 2*PI;
 
         double mils_raw = az * (6400 / (2 * PI));
-        //  CUANTIZACIÓN A 2 MILS (MIRAS ESTÁNDAR)
+
         double mils = std::floor((mils_raw + 1.5) / 2.0) * 2.0;
 
         std::string chg = "";
@@ -1636,53 +1359,29 @@ std::string BasicEngine::execute(const std::string& input)
 
         double dist = dist_geom + reg_dist;
 
-        //  PRIMERO resolver balística
         bool solved = solve(ammo_proj_prop, ammo_proj_lot, dist, chg, qe, tof, drift);
 
-        //  CALIBRAR QE/TOF AL HP-71B FÍSICO
-        // La FT Excel del US Army difiere ~98 mils de la realidad.
-        // hp71bCalibrate() aplica la fórmula del equipo militar real.
         hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg, dist, qe, tof);
-        
-        // ================================
-        //  DRIFT: USAR DATOS FT REALES
-        // ================================
-        // El drift del CSV ya viene de las tablas de tiro reales
-        // Solo usar fórmula sintética si el drift es extremadamente bajo
-        // (menos de 0.01 mil, que indica datos no disponibles)
+
         if(std::abs(drift) < 0.01)
         {
-            // Drift sintético solo cuando FT no tiene datos
-            // Factor = drift_real / distancia (HEA 155mm: 5.4 mils / 10467m ≈ 0.000516)
+
             if(artillery_type == "155")
                 drift = 0.000516 * dist;
             else
                 drift = 0.0001 * dist;
         }
 
-        //  AHORA sí calcular DEF correctamente
-
         bool use_fm1_reverse = fm1_base_def_reverse || active_fm1_def_reverse;
 
         double def = 0.0;
 
-        // CORRECCION DE SIGNO DEF:
-        // La HP fisica usa def_base - (AZ - AZ_LAY).
-        // def_base (3200) es el cero del mira (centro de la escala de deflexion).
         def = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse)
             def += reg_def + df_corr;
 
-        // ================================
-        //  MÓDULO DEF FÍSICO MEJORADO
-        // ================================
-
-        // ================================
-        //  DEFLEXIÓN ACUMULADA 
-        // ================================
-
-        double drift_accum = drift;  // drift del FT ya es el total de la trayectoria
+        double drift_accum = drift;
         double jump_h = 6.6;
 
         if(use_fm1_reverse)
@@ -1701,9 +1400,6 @@ std::string BasicEngine::execute(const std::string& input)
         if(ud_active)
             qe_final += (ud_corr*0.05);
 
-// ===============================
-//  APLICAR OPEN (FALTABA)
-// ===============================
         if(sheaf_mode == "OPEN" && guns.size() > 1)
         {
             int total_guns = (int)guns.size();
@@ -1718,10 +1414,9 @@ std::string BasicEngine::execute(const std::string& input)
 
         def += drift_accum;
         def += jump_h;
-        //  REDONDEO HP71
+
         def = std::round(def);
 
-        //  normalizar AL FINAL
         while(def < 0) def += 6400;
         while(def >= 6400) def -= 6400;
 
@@ -1757,7 +1452,6 @@ std::string BasicEngine::execute(const std::string& input)
         out<<"AZ "<<std::round(mils)<<"\n";
         std::string def_output;
 
-        //  NORMALIZAR DESPUÉS DEL AJUSTE FINAL
         while(def < 0) def += 6400;
         while(def >= 6400) def -= 6400;
 
@@ -1781,9 +1475,7 @@ std::string BasicEngine::execute(const std::string& input)
             out<<"FUZE PDA\n\n";
         }
     }
-        //  GUARDAR ÚLTIMA SOLUCIÓN BASE (PARA REG)
 
-        // usar la PIEZA BASE (correcto doctrinalmente)
         int i = base_piece_index;
 
         double dx = adj_tgt_e - guns[i].e;
@@ -1799,13 +1491,11 @@ std::string BasicEngine::execute(const std::string& input)
 
         double dist = dist_geom + reg_dist;
 
-        // resolver balística
         std::string chg_tmp = "";
         double qe_tmp = 0, tof_tmp = 0, drift_tmp = 0;
 
         bool solved_ref = solve(ammo_proj_prop, ammo_proj_lot, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
 
-        //  CALIBRAR QE/TOF AL HP-71B FÍSICO (misma calibración que la ruta principal)
         if(solved_ref)
             hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg_tmp, dist, qe_tmp, tof_tmp);
 
@@ -1820,14 +1510,12 @@ std::string BasicEngine::execute(const std::string& input)
 
         double def_ref = 0.0;
 
-        // Misma convencion de DEF que la HP fisica:
-        // def_base - (AZ - AZ_LAY)
         def_ref = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse_ref)
             def_ref += reg_def + df_corr;
 
-            double drift_accum = drift_tmp;  // drift del FT ya es el total
+            double drift_accum = drift_tmp;
             double jump_h = 6.6;
 
         if(use_fm1_reverse_ref)
@@ -1852,20 +1540,15 @@ std::string BasicEngine::execute(const std::string& input)
             if(ud_active)
                 qe_final_ref += (ud_corr * 0.05);
 
-
             while(def_ref < 0) def_ref += 6400;
             while(def_ref >= 6400) def_ref -= 6400;
-          
+
             last_def_solution = def_ref;
             last_dist_solution = dist;
             last_qe_solution = qe_final_ref;
         }
     return out.str();
 };
-
-//////////////////////////////////////////////////
-// ANGLE T - ANGULO ENTRE DIR OBSERVADO Y LINEA DE TIRO
-//////////////////////////////////////////////////
 
 auto computeAngleTFromDir = [&](double dir_mils) -> double
 {
@@ -1875,7 +1558,6 @@ auto computeAngleTFromDir = [&](double dir_mils) -> double
     if(base_piece_index < 0 || base_piece_index >= (int)guns.size())
         return 0.0;
 
-    // Vector PIEZA BASE -> TARGET
     double dx = tgt_e - guns[base_piece_index].e;
     double dy = tgt_n - guns[base_piece_index].n;
 
@@ -1886,7 +1568,6 @@ auto computeAngleTFromDir = [&](double dir_mils) -> double
 
     double gun_target_mils = az * (6400.0 / (2.0 * PI));
 
-    // Redondeo igual que en renderFire
     gun_target_mils = std::floor((gun_target_mils + 1.5) / 2.0) * 2.0;
 
     double angle_t = std::fabs(dir_mils - gun_target_mils);
@@ -1896,10 +1577,6 @@ auto computeAngleTFromDir = [&](double dir_mils) -> double
 
     return std::round(angle_t);
 };
-
-//////////////////////////////////////////////////
-// AZ ACTUAL PIEZA BASE -> TARGET
-//////////////////////////////////////////////////
 
 auto computeBaseAz = [&]() -> double
 {
@@ -1919,7 +1596,6 @@ auto computeBaseAz = [&]() -> double
 
     double az_mils = az * (6400.0 / (2.0 * PI));
 
-    // mismo redondeo que renderFire
     az_mils = std::floor((az_mils + 1.5) / 2.0) * 2.0;
 
     while(az_mils < 0)
@@ -1931,27 +1607,8 @@ auto computeBaseAz = [&]() -> double
     return std::round(az_mils);
 };
 
-//////////////////////////////////////////////////
-// CONVERTIR CORRECCION DEL OBSERVADOR A PIEZA
-//////////////////////////////////////////////////
-
 auto applyObserverCorrection = [&](double obs_lr, double obs_ad, double obs_ud, double dir_mils)
 {
-    // Las correcciones L/R y A/D que entran aqui son del OBSERVADOR.
-    //
-    // obs_lr:
-    //   R positivo
-    //   L negativo
-    //
-    // obs_ad:
-    //   A positivo
-    //   D negativo
-    //
-    // dir_mils:
-    //   DIR del observador.
-    //
-    // ANG T se calcula entre DIR y AZ pieza-target.
-    // Luego se convierten L/R y A/D al sistema real de la pieza.
 
     while(dir_mils < 0.0)
         dir_mils += 6400.0;
@@ -1965,9 +1622,6 @@ auto applyObserverCorrection = [&](double obs_lr, double obs_ad, double obs_ud, 
     double real_lr = (obs_lr * std::cos(t_rad)) - (obs_ad * std::sin(t_rad));
     double real_ad = (obs_ad * std::cos(t_rad)) - (obs_lr * std::sin(t_rad));
 
-    // La correccion ya quedo convertida al sistema pieza-target.
-    // Por eso renderFire debe aplicar el vector usando el AZ real
-    // pieza -> target, no el DIR del observador.
     shift_angle = computeBaseAz();
 
     shift_lr += real_lr;
@@ -1978,67 +1632,18 @@ auto applyObserverCorrection = [&](double obs_lr, double obs_ad, double obs_ud, 
     ud_corr = 0.0;
 };
 
-//////////////////////////////////////////////////
-// PREPARAR TGT BASE PARA CORRECCIONES OBSERVADOR
-//////////////////////////////////////////////////
-
 auto prepareTgtBaseShotForObserverCorrections = [&]()
 {
-    // ============================================================
-    // TGT 1 / TGT 2:
-    // Estos menús crean un blanco nuevo o derivado y hacen un
-    // disparo base.
-    //
-    // Luego, si el operador entra por:
-    //
-    //   COMP CORR -> N
-    //
-    // la nueva DIR y las correcciones L/R A/D U/D deben ser
-    // interpretadas desde el punto de vista del OBSERVADOR.
-    //
-    // IMPORTANTE:
-    // NO se deben borrar las correcciones de REG/FM2 aquí.
-    //
-    // Estas variables deben conservarse:
-    //
-    //   reg_dist
-    //   reg_def
-    //   df_corr
-    //   time_reg_correction
-    //
-    // Porque son la registración/corrección activa que ya acercó
-    // el sistema a la hoja. Si se limpian, TGT 1 y TGT 2 vuelven
-    // a salir crudos.
-    //
-    // Aquí solamente limpiamos correcciones instantáneas del impacto
-    // anterior y estados temporales del observador.
-    // ============================================================
 
     fire_phase = 0;
 
-    // ============================================================
-    // NO TOCAR:
-    //
-    // reg_dist
-    // reg_def
-    // df_corr
-    // time_reg_correction
-    //
-    // Se conservan a propósito.
-    // ============================================================
-
-    // Shift instantáneo acumulado del impacto/blanco anterior.
-    // Esto sí debe limpiarse al crear un nuevo TGT base, para que
-    // el nuevo blanco no herede una corrección L/R A/D U/D anterior.
     shift_lr = 0.0;
     shift_ad = 0.0;
     shift_ud = 0.0;
 
-    // Corrección vertical temporal.
     ud_active = false;
     ud_corr = 0.0;
 
-    // Estado instantáneo del observador.
     inst_prev_dir = 0.0;
     inst_prev_lr = 0.0;
     inst_prev_ad = 0.0;
@@ -2052,12 +1657,9 @@ auto prepareTgtBaseShotForObserverCorrections = [&]()
     inst_ad_shift = 0.0;
     inst_ud_shift = 0.0;
 
-    // Estado doctrinal de salida.
     all_guns_command = false;
     ffe_mode = false;
 
-    // Permitir edición de carga después del disparo base, igual que
-    // el flujo normal de fuego.
     chg_allowed = true;
 };
 
@@ -2069,10 +1671,6 @@ auto finishTgtBaseShot = [&]() -> std::string
 
     return "BASE PIECE (P *): " + std::to_string(base_piece_index + 1);
 };
-
-//////////////////////////////////////////////////
-// EOM
-//////////////////////////////////////////////////
 
 std::string v = normStr(cmd);
 
@@ -2097,21 +1695,12 @@ if(v == "E")
     return out.str() + "MAIN (? 1 3 4 5 7 X *)";
 }
 
-//////////////////////////////////////////////////
-// RESET A MAIN CON *
-//////////////////////////////////////////////////
-
     if(cmd=="*")
     {
         current_menu = MENU_MAIN;
         return drPrefix("MAIN",mainMenu());
     }
 
-//////////////////////////////////////////////////
-// MENU DISPATCH — switch/case
-//////////////////////////////////////////////////
-
-    // Variables estáticas de menús (fuera del switch)
     static std::vector<double> fm4_lr;
     static std::vector<double> fm4_ad;
     static std::vector<double> fm4_ud;
@@ -2160,7 +1749,6 @@ if(v == "E")
 
             return "MAX E (P *): " + std::to_string((int)map_e_max);
         }
-        
 
         if(cmd=="X")
             return resetData();
@@ -2168,15 +1756,10 @@ if(v == "E")
         return drPrefix("MAIN",mainMenu());
     }
 
-//////////////////////////////////////////////////
-// TARGET
-//////////////////////////////////////////////////
-
 case MENU_TARGET:
 {
     static int temp_knpt = 0;
 
-    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0)
@@ -2210,10 +1793,6 @@ case MENU_TARGET:
 
     std::string v = normStr(cmd);
 
-    // ==============================
-    // PASO 0: INDICADOR TGT
-    // Ejemplo: AA100
-    // ==============================
     if(input_stage==0)
     {
         if(!v.empty())
@@ -2223,9 +1802,6 @@ case MENU_TARGET:
         return "TGT/KNPT # (P *): " + std::to_string(temp_knpt);
     }
 
-    // ==============================
-    // PASO 1: KNPT #
-    // ==============================
     if(input_stage==1)
     {
         if(!v.empty())
@@ -2235,9 +1811,6 @@ case MENU_TARGET:
         return "TGT E (P *): " + std::to_string((int)tgt_e);
     }
 
-    // ==============================
-    // PASO 2: EASTING
-    // ==============================
     if(input_stage==2)
     {
         if(!v.empty())
@@ -2247,9 +1820,6 @@ case MENU_TARGET:
         return "TGT N (P *): " + std::to_string((int)tgt_n);
     }
 
-    // ==============================
-    // PASO 3: NORTHING
-    // ==============================
     if(input_stage==3)
     {
         if(!v.empty())
@@ -2259,15 +1829,11 @@ case MENU_TARGET:
         return "TGT ALT (P *): " + std::to_string((int)tgt_alt);
     }
 
-    // ==============================
-    // PASO 4: ALTURA
-    // ==============================
     if(input_stage==4)
     {
         if(!v.empty())
             tgt_alt = std::stod(v);
 
-        //  GUARDAR EN MAPA
         targets[temp_knpt] = {tgt_e, tgt_n, tgt_alt};
         current_knpt = temp_knpt;
 
@@ -2285,10 +1851,6 @@ case MENU_TARGET:
     }
 }
 
-//////////////////////////////////////////////////
-// AFU
-//////////////////////////////////////////////////
-
     case MENU_AFU:
     {
         if(cmd=="1")
@@ -2296,8 +1858,8 @@ case MENU_TARGET:
              current_menu = MENU_ART_TYPE;
             return "ART (105/155):";
         }
-    
-        if(cmd=="3")   
+
+        if(cmd=="3")
         {
             current_menu = MENU_MET;
             input_stage=0;
@@ -2314,10 +1876,6 @@ case MENU_TARGET:
         return afuMenu();
     }
 
-//////////////////////////////////////////////////
-// ARTILLERY TYPE
-//////////////////////////////////////////////////
-
     case MENU_ART_TYPE:
     {
         if(cmd=="105" || cmd=="155")
@@ -2329,10 +1887,6 @@ case MENU_TARGET:
 
         return "ART (105/155):";
     }
-
-//////////////////////////////////////////////////
-// AMMO
-//////////////////////////////////////////////////
 
     case MENU_AMMO:
     {
@@ -2377,10 +1931,6 @@ case MENU_TARGET:
             return "AMMO STORED\nAFU INDEX (? 1 3 5 *)";
         }
     }
-
-//////////////////////////////////////////////////
-// COB DOCTRINAL (GB + DIR DIST IV)
-//////////////////////////////////////////////////
 
     case MENU_COB_QTY:
     {
@@ -2546,7 +2096,7 @@ case MENU_TARGET:
             {
                 cob_current_index--;
                 current_menu = MENU_COB_IV;
-                
+
                 std::stringstream ss;
                 ss << "#" << cob_current_index << " IV (P *): " << (int)temp_iv;
                 return ss.str();
@@ -2629,7 +2179,6 @@ case MENU_TARGET:
 
         cob_current_index++;
 
-        //  RESET TEMPORALES PARA NUEVA PIEZA
         temp_dir = 0;
         temp_dist = 0;
         temp_iv = 0;
@@ -2647,10 +2196,6 @@ case MENU_TARGET:
         return ss.str();
     }
 
-//////////////////////////////////////////////////
-// OBS / PO
-//////////////////////////////////////////////////
-
 case MENU_OBS:
 {
     if(cmd=="*")
@@ -2660,7 +2205,6 @@ case MENU_OBS:
         return "MAIN (? 1 3 4 5 7 X *)";
     }
 
-    // BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0)
@@ -2684,9 +2228,6 @@ case MENU_OBS:
 
     std::string v = normStr(cmd);
 
-    // ============================================================
-    // PASO 0: NUMERO DE PO
-    // ============================================================
     if(input_stage == 0)
     {
         int selected_po = obs_current_index;
@@ -2708,8 +2249,6 @@ case MENU_OBS:
 
         BasicEngine::obs_id = selected_po;
 
-        // Si el PO ya existe, cargar datos anteriores.
-        // Si no existe, iniciar limpio.
         if(observers.find(BasicEngine::obs_id) != observers.end())
         {
             obs_e = observers[BasicEngine::obs_id].e;
@@ -2730,9 +2269,6 @@ case MENU_OBS:
         return "PO #" + std::to_string((int)BasicEngine::obs_id) + " E (P *): " + std::to_string((int)obs_e);
     }
 
-    // ============================================================
-    // PASO 1: ESTE
-    // ============================================================
     if(input_stage == 1)
     {
         if(!v.empty())
@@ -2752,9 +2288,6 @@ case MENU_OBS:
         return "PO #" + std::to_string((int)BasicEngine::obs_id) + " N (P *): " + std::to_string((int)obs_n);
     }
 
-    // ============================================================
-    // PASO 2: NORTE
-    // ============================================================
     if(input_stage == 2)
     {
         if(!v.empty())
@@ -2774,9 +2307,6 @@ case MENU_OBS:
         return "PO #" + std::to_string((int)BasicEngine::obs_id) + " ALT (P *): " + std::to_string((int)obs_alt);
     }
 
-    // ============================================================
-    // PASO 3: ALTURA Y GUARDADO
-    // ============================================================
     if(input_stage == 3)
     {
         if(!v.empty())
@@ -2797,7 +2327,6 @@ case MENU_OBS:
         obs.n = obs_n;
         obs.alt = obs_alt;
 
-        // GZ se mantiene si ya existia; si es nuevo queda 0.
         obs.gz = BasicEngine::obs_gz;
 
         observers[obs.id] = obs;
@@ -2808,8 +2337,6 @@ case MENU_OBS:
         main_inputs.push_back("ALT " + std::to_string((int)obs.alt));
         main_inputs.push_back("GZ " + std::to_string((int)obs.gz));
 
-        // Si el PO guardado es igual o mayor al siguiente esperado,
-        // avanzar automaticamente al proximo PO.
         if(obs.id >= obs_current_index)
             obs_current_index = obs.id + 1;
 
@@ -2822,13 +2349,9 @@ case MENU_OBS:
     }
 }
 
-//////////////////////////////////////////////////
-// MAP MODEL
-//////////////////////////////////////////////////
-
 case MENU_MAP_MODEL:
 {
-    //  BACK CON P
+
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -2846,7 +2369,6 @@ case MENU_MAP_MODEL:
 
     std::string v = normStr(cmd);
 
-    //  SI HAY VALOR → GUARDAR
     if(!v.empty())
     {
         switch(input_stage)
@@ -2861,7 +2383,6 @@ case MENU_MAP_MODEL:
         }
     }
 
-    //  SIEMPRE AVANZAR (ENTER o valor)
     input_stage++;
 
     switch(input_stage)
@@ -2881,29 +2402,26 @@ case MENU_MAP_MODEL:
             main_inputs.push_back("GZ " + std::to_string((int)map_gz));
             main_inputs.push_back("SPHER " + map_spher);
 
-            //  AUTO-DETECT LOCATION FROM MAP CENTER
             double center_e = (map_e_max + map_e_min) / 2.0;
             double center_n = (map_n_max + map_n_min) / 2.0;
-            
-            // Ubicaciones conocidas Honduras (UTM Zone 16N)
+
             struct ZoneAtm {
                 const char* name;
-                double e, n;            // coordenadas UTM centro
-                double temp, hum;       // atmósfera promedio
-                double wind_dir, wind_spd; // viento promedio
+                double e, n;
+                double temp, hum;
+                double wind_dir, wind_spd;
             };
-            
-            //  ACTUALIZAR con coordenadas reales del MAP MODEL cuando se confirmen
+
             ZoneAtm zones[] = {
                 {"ZAMBRANO",   456854, 1577256, 32.0, 80.0,   0, 3.4},
                 {"PINALEJO",   383483, 1649393, 25.0, 85.0,   0, 3.0},
                 {"TRINCHERAS", 479843, 1470565, 34.0, 65.0, 180, 3.0},
             };
-            
+
             const int NUM_ZONES = 3;
             double min_dist = 1e9;
             int best_idx = -1;
-            
+
             for(int i = 0; i < NUM_ZONES; i++)
             {
                 double dx = center_e - zones[i].e;
@@ -2915,9 +2433,9 @@ case MENU_MAP_MODEL:
                     best_idx = i;
                 }
             }
-            
+
             std::string zone_name = "UNKNOWN";
-            if(best_idx >= 0 && min_dist < 50000) // Radio: 50km
+            if(best_idx >= 0 && min_dist < 50000)
             {
                 zone_name = zones[best_idx].name;
                 temperature = zones[best_idx].temp;
@@ -2931,16 +2449,13 @@ case MENU_MAP_MODEL:
 
             current_menu = MENU_MAIN;
             input_stage=0;
-            
+
             return "MAP STORED\nMAIN (? 1 3 4 5 7 X *)";
         }
     }
 
     return "MAX E (P *): " + std::to_string((int)map_e_max);
 }
-//////////////////////////////////////////////////
-// MET
-//////////////////////////////////////////////////
 
     case MENU_MET:
     {
@@ -2964,14 +2479,10 @@ case MENU_MAP_MODEL:
                 return "MET STORED\nAFU INDEX (? 1 3 5 *)";
         }
     }
-//////////////////////////////////////////////////
-// FM
-//////////////////////////////////////////////////
 
 case MENU_FM:
     {
-        //  VOLVER A CARGA AUTOMATICA
-        
+
         if(cmd=="AUTOCHG")
         {
             manual_chg_enabled = false;
@@ -2980,7 +2491,6 @@ case MENU_FM:
             return "AUTO CHARGE ENABLED\nFM (? 1 2 3 4 S P X *)";
         }
 
-        //  STANAG CONFIG: CD0=value
         if(cmd.size() > 4 && cmd.substr(0, 4) == "CD0=")
         {
             try {
@@ -2989,7 +2499,7 @@ case MENU_FM:
                     return "CD0 out of range [0.05-0.50]\nFM (? 1 2 3 4 S P X *)";
                 Stanag4355::cfg_cd0 = val;
                 std::stringstream ss;
-                // BC in lb/in²: mass_lb / (i * d_in²), i = cd0/G1_CD0_REF
+
                 double mass_lb = 43.2 * 2.20462;
                 double d_in = 0.155 * 39.3701;
                 double i_form = val / 0.230;
@@ -3003,7 +2513,6 @@ case MENU_FM:
             }
         }
 
-        //  STANAG CONFIG: V0_CHG=value (e.g. V0_6W=500)
         if(cmd.size() > 3 && cmd.substr(0, 3) == "V0_")
         {
             size_t eq = cmd.find('=');
@@ -3024,7 +2533,6 @@ case MENU_FM:
             }
         }
 
-        //  STANAG CONFIG: TEMP=temperature_in_Celsius
         if(cmd.size() > 5 && cmd.substr(0, 5) == "TEMP=")
         {
             try {
@@ -3041,7 +2549,6 @@ case MENU_FM:
             }
         }
 
-        //  STANAG CONFIG: HUM=humidity_percent
         if(cmd.size() > 4 && cmd.substr(0, 4) == "HUM=")
         {
             try {
@@ -3058,7 +2565,6 @@ case MENU_FM:
             }
         }
 
-        //  STANAG CONFIG: WIND_DIR=direction (degrees FROM, 0=N, 90=E)
         if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_DIR=")
         {
             try {
@@ -3075,7 +2581,6 @@ case MENU_FM:
             }
         }
 
-        //  STANAG CONFIG: WIND_SPD=speed (m/s)
         if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_SPD=")
         {
             try {
@@ -3092,7 +2597,6 @@ case MENU_FM:
             }
         }
 
-        //  STANAG CONFIG: FIRING_AZ=azimuth (degrees, 0=N, 90=E)
         if(cmd.size() > 10 && cmd.substr(0, 10) == "FIRING_AZ=")
         {
             try {
@@ -3109,7 +2613,6 @@ case MENU_FM:
             }
         }
 
-        //  STANAG CONFIG: SHOW (show current config)
         if(cmd == "SHOW")
         {
             std::stringstream ss;
@@ -3131,19 +2634,16 @@ case MENU_FM:
             return ss.str();
         }
 
-        //  STANAG 4355 COMPARISON
         if(cmd=="STANAG")
         {
             if(ammo_proj_prop.empty() || guns.empty() || (tgt_e == 0 && tgt_n == 0))
                 return "NEED COB + AMMO + TARGET first\nFM (? 1 2 3 4 S P X *)";
 
-            // Calculate distance from base piece to target
             int bp = base_piece_index;
             double dx = tgt_e - guns[bp].e;
             double dy = tgt_n - guns[bp].n;
             double dist_calc = std::sqrt(dx*dx + dy*dy);
 
-            // Resolve charge first
             std::string chg_resolved = "";
             double qe_r, tof_r, drift_r;
             solve(ammo_proj_prop, ammo_proj_lot, dist_calc, chg_resolved, qe_r, tof_r, drift_r);
@@ -3155,7 +2655,6 @@ case MENU_FM:
                                  chg_resolved, dist_calc) + "\nFM (? 1 2 3 4 S P X *)";
         }
 
-        //  STANAG CALIBRATION (tests cd0 vs FT data)
         if(cmd=="STANAG_CAL")
         {
             return stanagCalibrate() + "\nFM (? 1 2 3 4 S P X *)";
@@ -3188,13 +2687,13 @@ case MENU_FM:
             return "KNPT #:";
         }
 
-        if(cmd=="3")    //  FM3 DOCTRINAL
+        if(cmd=="3")
         {
             current_menu = MENU_SHIFT_PREV_DIR;
             return "PREV DIR:";
         }
 
-        if(cmd=="4")   //  FM4 E.A. Y P.M.I.
+        if(cmd=="4")
         {
             current_menu = MENU_FM4_LR;
             return "IMPACT L/R (ej: L50 o R50):";
@@ -3210,7 +2709,6 @@ case MENU_FM:
         {
             std::stringstream out;
 
-            // COB
             for(size_t i=0;i<guns.size();i++)
             {
                 out<<"COB "<<i+1<<" ALT "<<guns[i].alt
@@ -3220,17 +2718,15 @@ case MENU_FM:
             out << "BASE PIECE " << (base_piece_index + 1) << "\n";
             out << "AZ LAY " << az_lay << "\n";
             out << "REF DEF " << def_base << "\n";
-            // TARGET
+
             out<<"TGT ALT "<<tgt_alt
             <<" N "<<tgt_n
             <<" E "<<tgt_e<<"\n";
 
-            // AMMO
             out<<"AMMO "<<ammo_proj_prop
             <<" LOT "<<ammo_proj_lot
             <<" WT "<<ammo_proj_wt<<"\n";
 
-            // OBS
             if(observers.empty())
             {
                 out << "OBS " << BasicEngine::obs_id
@@ -3253,7 +2749,6 @@ case MENU_FM:
                 }
             }
 
-            // MAP
             out<<"MAP EMAX "<<map_e_max
             <<" EMIN "<<map_e_min
             <<" NMAX "<<map_n_max
@@ -3262,7 +2757,6 @@ case MENU_FM:
             return out.str() + "FM (? 1 2 3 4 R E P X *)";
         }
 
-        //  DOCTRINAL: A = TODAS LAS PIEZAS (FFE)
         if(cmd=="A")
         {
             all_guns_command = true;
@@ -3271,7 +2765,6 @@ case MENU_FM:
             return "FFE\nPRESS X";
         }
 
-        // SHIFT oculto
        if(cmd=="T")
         {
             current_menu = MENU_SHIFT_PREV_DIR;
@@ -3280,7 +2773,6 @@ case MENU_FM:
 
        if(cmd=="X")
         {
-            //  VALIDACIÓN DOCTRINAL PRO
 
             bool has_cob = !guns.empty();
             bool has_target = !(tgt_e == 0 && tgt_n == 0);
@@ -3309,7 +2801,7 @@ case MENU_FM:
 
             std::string result = renderFire(ffe_mode);
 
-            all_guns_command = false; // reset doctrinal
+            all_guns_command = false;
 
             ShotLog shot;
 
@@ -3330,16 +2822,12 @@ case MENU_FM:
 
             std::stringstream input_ss;
 
-
-            //  2. INPUTS DEL DISPARO
             for(const auto& s : last_inputs)
                 input_ss << s << "\n";
 
             shot.inputs = input_ss.str();
 
-            //  LIMPIAR SOLO inputs del disparo
             last_inputs.clear();
-
 
             mission_log.push_back(shot);
             if(fire_phase < 4)
@@ -3354,10 +2842,6 @@ case MENU_FM:
 
         return drPrefix("FM",fireMenu());
     }
-
-//////////////////////////////////////////////////
-// FM1 - TGT SUBMENU
-//////////////////////////////////////////////////
 
     case MENU_FM1_TGT:
     {
@@ -3400,13 +2884,9 @@ case MENU_FM:
         return "TGT (? 1 2 3 P *)";
     }
 
-//////////////////////////////////////////////////
-// FM1 - CUADRICULA
-//////////////////////////////////////////////////
-
 case MENU_FM1_GRID:
 {
-    //  BACK CON P
+
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -3515,13 +2995,9 @@ case MENU_FM1_GRID:
     return "TGT/KNPT (P *): " + std::to_string(fm1_temp_knpt);
 }
 
-//////////////////////////////////////////////////
-// FM1 - TRANSPORTE
-//////////////////////////////////////////////////
-
 case MENU_FM1_TRANSPORT:
 {
-    //  BACK CON P
+
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -3619,9 +3095,6 @@ case MENU_FM1_TRANSPORT:
             tgt_n = new_n;
             tgt_alt = new_alt;
 
-            // TGT2 es un blanco transportado temporal.
-            // NO sobrescribe el KNPT de origen.
-            // Así FM2 puede seguir usando el TGT original.
             current_knpt = 0;
 
             last_inputs.push_back("FM1 TRANSPORT");
@@ -3670,7 +3143,7 @@ case MENU_FM1_TRANSPORT:
 
                 return msg.str();
             }
-            
+
             fm1_base_def_reverse = true;
             active_fm1_def_reverse = true;
             active_fm1_transport_qe_shape = true;
@@ -3684,13 +3157,9 @@ case MENU_FM1_TRANSPORT:
     return "DESDE (P *): " + std::to_string(fm1_from_knpt);
 }
 
-//////////////////////////////////////////////////
-// FM1 - POLARES
-//////////////////////////////////////////////////
-
 case MENU_FM1_POLAR:
 {
-    //  BACK
+
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -3801,10 +3270,6 @@ case MENU_FM1_POLAR:
     return "AZ (P *): " + std::to_string((int)fm1_pol_az);
 }
 
-//////////////////////////////////////////////////
-// FM4 - E.A. Y P.M.I.
-//////////////////////////////////////////////////
-
     case MENU_FM4_LR:
     {
         if(cmd=="X")
@@ -3867,7 +3332,6 @@ case MENU_FM1_POLAR:
             last_inputs.push_back("D" + std::to_string((int)val));
         }
 
-        // Preguntar si hay más impactos
         current_menu = MENU_FM4_NEXT;
         return "ADD MORE? (Y/N)";
     }
@@ -3883,7 +3347,7 @@ case MENU_FM1_POLAR:
         if(cmd=="N")
         {
             fire_phase = 4;
-            //  CALCULO PMI
+
             double avg_lr=0, avg_ad=0, avg_ud=0;
 
             for(double v:fm4_lr) avg_lr+=v;
@@ -3894,8 +3358,6 @@ case MENU_FM1_POLAR:
             if(!fm4_ad.empty()) avg_ad/=fm4_ad.size();
             if(!fm4_ud.empty()) avg_ud/=fm4_ud.size();
 
-            // Aplicar PMI como correccion observada.
-            // Usa el ultimo DIR confirmado en COMP CORR / SHIFT.
             applyObserverCorrection(
                 avg_lr,
                 avg_ad,
@@ -3903,7 +3365,6 @@ case MENU_FM1_POLAR:
                 inst_last_dir
             );
 
-            // limpiar buffers
             fm4_lr.clear();
             fm4_ad.clear();
             fm4_ud.clear();
@@ -3919,9 +3380,6 @@ case MENU_FM1_POLAR:
 
         return "ADD MORE? (Y/N)";
     }
-//////////////////////////////////////////////////
-// SHIFT DOCTRINAL
-//////////////////////////////////////////////////
 
 case MENU_SHIFT_PREV_DIR:
 {
@@ -4081,8 +3539,6 @@ case MENU_SHIFT_ANGLE:
 {
     std::string v = normStr(cmd);
 
-    // ENTER confirma ANG T calculado.
-    // Si el usuario escribe algo, lo aceptamos como ANG T manual.
     if(!v.empty())
         shift_angle = std::stod(v);
 
@@ -4222,10 +3678,6 @@ case MENU_SHIFT_UD:
     return "SHIFT APPLIED\nFM (? 1 2 3 4 S P X *)";
 }
 
-//////////////////////////////////////////////////
-// SHIFT MENU
-//////////////////////////////////////////////////
-
 case MENU_SHIFT:
 {
     std::string v = normStr(cmd);
@@ -4276,10 +3728,6 @@ case MENU_SHIFT:
     return "SHIFT APPLIED\nFM (? 1 2 3 4 S P X *)";
 }
 
-//////////////////////////////////////////////////
-// SHEAF MENU
-//////////////////////////////////////////////////
-
     case MENU_SHEAF:
     {
         if(cmd=="CONV")
@@ -4292,16 +3740,12 @@ case MENU_SHIFT:
         if(cmd=="OPEN")
         {
             sheaf_mode="OPEN";
-            current_menu = MENU_SHEAF_WIDTH; //  NUEVO PASO
+            current_menu = MENU_SHEAF_WIDTH;
             return "OPEN WIDTH (MILS):";
         }
 
         return "SHEAF (CONV/OPEN):";
     }
-
-//////////////////////////////////////////////////
-// SHEAF WIDTH (NUEVO)
-//////////////////////////////////////////////////
 
     case MENU_SHEAF_WIDTH:
     {
@@ -4323,13 +3767,9 @@ case MENU_SHIFT:
         }
     }
 
-//////////////////////////////////////////////////
-// REG
-//////////////////////////////////////////////////
-
    case MENU_REG:
 {
-        //  PREGUNTA REUTILIZAR REG
+
     if(input_stage == -1)
     {
         if(cmd == "Y")
@@ -4379,7 +3819,6 @@ case MENU_SHIFT:
 
             current_knpt = knpt;
 
-            //  CARGAR TARGET DESDE MAIN 3
             tgt_e = targets[knpt].e;
             tgt_n = targets[knpt].n;
             tgt_alt = targets[knpt].alt;
@@ -4438,7 +3877,6 @@ case MENU_SHIFT:
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_dist_solution : std::stod(v);
 
-            //  CORRECCION: 0 significa "sin correccion" (mantener reg_dist=0)
             if(v.empty() || reg_input == 0)
                 reg_dist = 0;
             else
@@ -4446,7 +3884,6 @@ case MENU_SHIFT:
 
             last_inputs.push_back("REG DIST " + std::to_string((int)reg_input));
 
-            // RECALCULAR LA SOLUCION BASE YA CON EL NUEVO REG_DIST
             try
             {
                 renderFire(false);
@@ -4468,15 +3905,10 @@ case MENU_SHIFT:
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_def_solution : std::stod(v);
 
-            //  GUARDAR VALOR ACTUAL
             double reg_def_backup = reg_def;
 
-            //  FORZAR SIN REG
             reg_def = 0;
 
-            // ===============================
-            //  USAR MISMO TARGET AJUSTADO QUE renderFire
-            // ===============================
             double adj_tgt_e = tgt_e;
             double adj_tgt_n = tgt_n;
 
@@ -4484,11 +3916,9 @@ case MENU_SHIFT:
             {
                 double dir_rad = shift_angle * (2.0 * PI / 6400.0);
 
-                // Vector A/D real: sobre la linea pieza-target.
                 double ad_e = std::sin(dir_rad);
                 double ad_n = std::cos(dir_rad);
 
-                // Vector L/R real: perpendicular a la linea pieza-target.
                 double lr_e = std::cos(dir_rad);
                 double lr_n = -std::sin(dir_rad);
 
@@ -4520,13 +3950,10 @@ case MENU_SHIFT:
                 drift = 0.00038 * dist;
             }
 
-            // DEF REAL LIMPIA
-            // Convencion corregida:
-            // 3200 + REF_DEF - (AZ - AZ_LAY)
             double def_real = def_base - (mils - az_lay);
             def_real += df_corr;
-            
-            double drift_accum_real = drift;  // drift del FT ya es el total
+
+            double drift_accum_real = drift;
             double jump_h_real = 6.6;
 
             def_real += drift_accum_real;
@@ -4537,17 +3964,11 @@ case MENU_SHIFT:
             while(def_real < 0) def_real += 6400;
             while(def_real >= 6400) def_real -= 6400;
 
-            //  RESTAURAR
             reg_def = reg_def_backup;
 
-            // ================================
-            //  CORRECCIÓN REG REAL (CONV)
-            // ================================
-
-            // detectar si operador no corrigió
             if(std::abs(reg_input - last_def_solution) <= 1)
             {
-                //  calcular spread entre piezas
+
                 double max_def = -1e9;
                 double min_def = 1e9;
 
@@ -4576,12 +3997,10 @@ case MENU_SHIFT:
                     drift_tmp = 0.00038 * dist;
                 }
 
-                // DEF temporal con la misma convencion corregida:
-                // 3200 + REF_DEF - (AZ - AZ_LAY)
                 double def_temp = def_base - (mils - az_lay);
                 def_temp += reg_def + df_corr;
 
-                double drift_accum = drift_tmp;  // drift del FT ya es el total
+                double drift_accum = drift_tmp;
                 double jump_h = 6.6;
 
                 def_temp += drift_accum;
@@ -4629,10 +4048,6 @@ case MENU_SHIFT:
     return "REG ERROR";
 }
 
-//////////////////////////////////////////////////
-// REG - CONFIRMAR BASE PIECE DESPUES DE FUZE
-//////////////////////////////////////////////////
-
 case MENU_REG_BASE_PIECE:
 {
     if(cmd=="P")
@@ -4670,8 +4085,6 @@ case MENU_REG_BASE_PIECE:
 
     base_piece_index = bp - 1;
 
-    // Recalcular solucion base usando la nueva BASE PIECE.
-    // Esto actualiza last_dist_solution, last_def_solution y last_qe_solution.
     try
     {
         renderFire(false);
@@ -4690,10 +4103,6 @@ case MENU_REG_BASE_PIECE:
     ss << "REG RG (" << (int)last_dist_solution << "):";
     return ss.str();
 }
-
-//////////////////////////////////////////////////
-// FM1 - CONFIRMAR BASE PIECE ANTES DEL DISPARO
-//////////////////////////////////////////////////
 
 case MENU_FM1_BASE_PIECE:
 {
@@ -4765,10 +4174,6 @@ case MENU_FM1_BASE_PIECE:
     current_menu = MENU_COMP_CORR;
     chg_allowed = true;
 
-    // IMPORTANTE:
-    // TGT1 usa DEF reverse solo para el disparo base.
-    // Despues del resultado, debe apagarse para que COMP CORR -> N,
-    // INST_UD_SHIFT, FM3 y demas correcciones no hereden esa logica.
     fm1_base_def_reverse = false;
     active_fm1_def_reverse = false;
     active_fm1_transport_qe_shape = false;
@@ -4776,13 +4181,9 @@ case MENU_FM1_BASE_PIECE:
     return result + "COMP CORR (Y N P *)\nTESON EVIL";
 }
 
-//////////////////////////////////////////////////
-// COMP CORR
-//////////////////////////////////////////////////
-
 case MENU_COMP_CORR:
 {
-    // SOLO permitir cambio de carga si viene de un disparo
+
     if((cmd=="" || cmd=="X") && chg_allowed)
     {
         chg_allowed = false;
@@ -4792,14 +4193,12 @@ case MENU_COMP_CORR:
         return "LOT: ?";
     }
 
-    // Y = TIME REG
     if(cmd=="Y")
     {
         current_menu = MENU_TIME_REG;
         return "TIME REG (Y N P *)";
     }
 
-    // N = ESP. INSTANTANEA / CORRECCIONES PDA
 if(cmd=="N")
 {
     if(time_reg_fuze_temporary)
@@ -4812,7 +4211,6 @@ if(cmd=="N")
     ud_active = false;
     ud_corr = 0.0;
 
-    // Limpiar datos previos de la corrección instantánea
     inst_prev_dir = 0.0;
     inst_prev_lr = 0.0;
     inst_prev_ad = 0.0;
@@ -4829,7 +4227,6 @@ if(cmd=="N")
     return "PREV DIR (*):";
 }
 
-    // P = VOLVER AL MENU FM
     if(cmd=="P")
     {
         current_menu = MENU_FM;
@@ -4838,10 +4235,6 @@ if(cmd=="N")
 
     return "COMP CORR (Y N P *)";
 }
-
-//////////////////////////////////////////////////
-// ESP. INSTANTANEA / PDA SHIFT CORR
-//////////////////////////////////////////////////
 
 case MENU_INST_PREV_DIR:
 {
@@ -5017,8 +4410,6 @@ case MENU_INST_DIR:
 
     std::string v = normStr(cmd);
 
-    // Si el usuario escribe un DIR nuevo, se guarda.
-    // Si solo da ENTER, se confirma el DIR mostrado.
     if(!v.empty())
     {
         inst_new_dir = std::stod(v);
@@ -5037,12 +4428,6 @@ case MENU_INST_DIR:
 
     inst_last_dir = inst_new_dir;
 
-    // DIR solo se usa para calcular ANG T.
-    // No se usa directamente como direccion del vector final,
-    // porque la correccion se convierte luego en INST_UD_SHIFT.
-
-    // ANG T se calcula usando el DIR confirmado
-    // contra la línea PIEZA BASE -> TARGET
     inst_angle_t = computeAngleTFromDir(inst_new_dir);
 
     current_menu = MENU_INST_ANGLE_T;
@@ -5071,8 +4456,6 @@ case MENU_INST_ANGLE_T:
         return "COMP CORR (Y N P *)";
     }
 
-    // ENTER confirma el ANG T calculado.
-    // No se escribe manualmente.
     inst_angle_t = computeAngleTFromDir(inst_new_dir);
 
     current_menu = MENU_INST_LR_SHIFT;
@@ -5216,31 +4599,6 @@ case MENU_INST_UD_SHIFT:
             inst_ud_shift = val;
     }
 
-    // ============================================================
-    // APLICAR CORRECCION INSTANTANEA COMPLETA
-    // ============================================================
-    //
-    // En COMP CORR -> N, las correcciones L/R y A/D son del OBSERVADOR.
-    // Por eso NO se deben sumar directo a shift_lr / shift_ad.
-    //
-    // Primero se convierten usando ANG T:
-    //
-    //   inst_lr_shift = R positivo, L negativo
-    //   inst_ad_shift = A positivo, D negativo
-    //
-    // Con ANG T cerca de 1600 mils:
-    //   R/L del observador se convierte casi en alcance.
-    //   A/D del observador se convierte casi en lateral.
-    //
-    // Ejemplo:
-    //   AZ 3318
-    //   DIR 4930
-    //   ANG T 1612
-    //   R200
-    //
-    // Debe afectar principalmente DIST/QE/TOF, no DEF.
-    // ============================================================
-
     applyObserverCorrection(
         inst_lr_shift,
         inst_ad_shift,
@@ -5278,13 +4636,9 @@ case MENU_INST_UD_SHIFT:
     return result + "COMP CORR (Y N P *)\nTESON EVIL";
 }
 
-//////////////////////////////////////////////////
-// TIME REG / FUZE DOCTRINAL
-//////////////////////////////////////////////////
-
     case MENU_TIME_REG:
     {
-        // Flujo doctrinal del manual
+
         if(cmd=="Y")
         {
             current_menu = MENU_TIME_REG_FUZE;
@@ -5292,7 +4646,6 @@ case MENU_INST_UD_SHIFT:
             return std::string("FUZE (P*) ") + (fuze_time_mode ? "TIA" : "PDA");
         }
 
-        // Mantiene compatibilidad con la prueba vieja
         if(cmd=="P")
         {
             current_menu = MENU_TIME_REG_INPUT;
@@ -5319,8 +4672,7 @@ case MENU_INST_UD_SHIFT:
     {
         if(cmd=="PDA")
         {
-            // PDA normal para este TIME REG.
-            // No queda ningun modo temporal activo.
+
             fuze_time_mode = false;
             hob = 0;
             time_reg_fuze_temporary = false;
@@ -5331,8 +4683,7 @@ case MENU_INST_UD_SHIFT:
 
         if(cmd=="TIA")
         {
-            // TIA temporal solo para TIME REG y su U/D CORR.
-            // Despues de aplicar U/D CORR se restablece a PDA.
+
             fuze_time_mode = true;
             hob = 0;
             time_reg_fuze_temporary = true;
@@ -5349,18 +4700,12 @@ case MENU_INST_UD_SHIFT:
         hob = std::stod(cmd);
         last_inputs.push_back("HOB " + cmd);
 
-        // Mantener TIA activo solamente para el resultado final
-        // despues de aplicar U/D CORR.
         fuze_time_mode = true;
         time_reg_fuze_temporary = true;
 
         current_menu = MENU_UD_CORR;
         return "(U/D) CORR (*)";
     }
-
-//////////////////////////////////////////////////
-// U/D CORR
-//////////////////////////////////////////////////
 
     case MENU_UD_CORR:
     {
@@ -5385,7 +4730,6 @@ case MENU_INST_UD_SHIFT:
         if(!parseUD(cmd, corr))
             return "(U/D) CORR (*)";
 
-
         ud_corr = corr;
         ud_active = true;
 
@@ -5393,8 +4737,6 @@ case MENU_INST_UD_SHIFT:
 
         std::string result = renderFire(false);
         last_solution = result;
-
-
 
         ud_active = false;
         ud_corr = 0.0;
@@ -5412,52 +4754,37 @@ case MENU_INST_UD_SHIFT:
         return result + "COMP CORR (Y N P *)\nTESON EVIL";
     }
 
-//////////////////////////////////////////////////
-// DF CORR
-//////////////////////////////////////////////////
-
 case MENU_DF_CORR:
 {
     std::stringstream ss(cmd);
-    std::string dir; 
+    std::string dir;
     double val;
 
     ss >> dir >> val;
 
-    //  DISTANCIA BASE
     double base_dist = last_dist_solution;
 
     if(base_dist <= 0)
         return "NO BASE DIST";
 
-    //  convertir metros → mils
     double mils = (val / base_dist) * 1000.0;
 
-    // ===============================
-    //  ADD / DROP (CORREGIDO REAL)
-    // ===============================
     if(dir=="ADD" || dir=="DROP")
     {
         double new_dist;
-
-    //  ACUMULACIÓN DOCTRINAL REAL
 
     if(dir=="ADD")
     {
         reg_dist += val;
     }
-    else // DROP
+    else
     {
         reg_dist -= val;
     }
 
-    //  reset QE correction
     time_reg_correction = 0;
     }
 
-    // ===============================
-    //  RIGHT / LEFT
-    // ===============================
     else if(dir=="RIGHT")
     {
         df_corr += mils;
@@ -5475,20 +4802,15 @@ case MENU_DF_CORR:
     return drPrefix("FM",fireMenu());
 }
 
-//////////////////////////////////////////////////
-// CHG EDIT (DOCTRINAL)
-//////////////////////////////////////////////////
-
 case MENU_CHG_EDIT:
 {
-    // Paso 1: LOT
+
     if(!chg_wait_value)
     {
         chg_wait_value = true;
         return "Cg:";
     }
 
-    // Paso 2: nueva carga
     try
     {
         manual_chg_enabled = true;
@@ -5509,29 +4831,18 @@ case MENU_CHG_EDIT:
     }
 }
 
-//////////////////////////////////////////////////
-// DEFAULT
-//////////////////////////////////////////////////
-
     default:
         break;
-    } // switch(current_menu)
+    }
 
     return drPrefix("MAIN",mainMenu());
 
-    } 
-//////////////////////////////////////////////////
-// MENUS
-//////////////////////////////////////////////////
+    }
 
 std::string BasicEngine::mainMenu(){ return "MAIN (? 1 3 4 5 7 X *)"; }
 std::string BasicEngine::fireMenu(){ return "FM (? 1 2 3 4 R E P X *)"; }
 std::string BasicEngine::afuMenu(){ return "AFU INDEX (? 1 3 5 *)"; }
 std::string BasicEngine::ammoMenu(){ return "AMMO FILE (? I *)"; }
-
-//////////////////////////////////////////////////
-// RESET
-//////////////////////////////////////////////////
 
 std::string BasicEngine::resetData()
 {
@@ -5558,10 +4869,9 @@ std::string BasicEngine::resetData()
     observers.clear();
 
     wind_dir=0;
-    wind_speed=2.5;   // Honduras average
-    temperature=28.0; // Honduras average
-    
-    // Also update Stanag4355 config
+    wind_speed=2.5;
+    temperature=28.0;
+
     Stanag4355::cfg_temp = 28.0;
     Stanag4355::cfg_humidity = 75.0;
     Stanag4355::cfg_wind_dir = 0.0;
@@ -5676,10 +4986,8 @@ std::string BasicEngine::resetData()
 
     def_base = 3200;
 
-    
     bool loaded = false;
 
-    // intento 1
     std::ifstream f1("tables.csv");
     if(f1.good())
     {
@@ -5687,7 +4995,6 @@ std::string BasicEngine::resetData()
         loaded = true;
     }
 
-    // intento 2
     if(!loaded)
     {
         std::ifstream f2("backend/tables.csv");
@@ -5698,9 +5005,6 @@ std::string BasicEngine::resetData()
         }
     }
 
-    // intento 3 (ruta absoluta desde exe)
-    // Windows usa GetModuleFileNameA.
-    // Linux/WSL usa /proc/self/exe.
     if(!loaded)
     {
         std::string fullPath = "";
@@ -5744,7 +5048,6 @@ std::string BasicEngine::resetData()
     {
         std::cout << "ERROR: tables.csv no encontrado\n";
     }
-    
 
     return "DATA CLEARED\nMAIN (? 1 3 4 5 7 X *)";
 
