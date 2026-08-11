@@ -1896,14 +1896,31 @@ if(current_menu=="TARGET")
 
         if(input_stage==0)
         {
-            ammo_proj_prop=cmd;
+            if(cmd=="P")
+            {
+                ammo_input_active=false;
+                current_menu="AFU";
+                return afuMenu();
+            }
+
+            std::string v = normStr(cmd);
+            if(!v.empty())
+                ammo_proj_prop=v;
             input_stage++;
             return "LOT:";
         }
 
         if(input_stage==1)
         {
-            ammo_proj_lot=cmd;
+            if(cmd=="P")
+            {
+                input_stage=0;
+                return "PROJ (P *): " + ammo_proj_prop;
+            }
+
+            std::string v = normStr(cmd);
+            if(!v.empty())
+                ammo_proj_lot=v;
 
             main_inputs.push_back("AMMO");
             main_inputs.push_back("PROJ " + ammo_proj_prop);
@@ -2453,23 +2470,38 @@ if(current_menu=="MAP_MODEL")
 
     if(current_menu=="MET")
     {
+        if(cmd=="P")
+        {
+            if(input_stage > 0)
+                input_stage--;
+
+            switch(input_stage)
+            {
+                case 0: return "DIR (P *): " + std::to_string((int)wind_dir);
+                case 1: return "VEL (P *): " + std::to_string((int)wind_speed);
+                case 2: return "TEMP (P *): " + std::to_string((int)temperature);
+            }
+        }
+
+        std::string v = normStr(cmd);
+
         switch(input_stage)
         {
             case 0:
-                wind_dir = std::stod(cmd);
+                if(!v.empty())
+                    wind_dir = std::stod(v);
                 input_stage++;
                 return "VEL:";
-
             case 1:
-                wind_speed = std::stod(cmd);
+                if(!v.empty())
+                    wind_speed = std::stod(v);
                 input_stage++;
                 return "TEMP:";
-
             case 2:
-                temperature = std::stod(cmd);
+                if(!v.empty())
+                    temperature = std::stod(v);
                 current_menu="AFU";
                 input_stage=0;
-
                 return "MET STORED\nAFU INDEX (? 1 3 5 *)";
         }
     }
