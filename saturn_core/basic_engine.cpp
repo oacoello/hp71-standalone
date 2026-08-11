@@ -2266,7 +2266,7 @@ std::string BasicEngine::execute(const std::string& input)
     if(initializing)
     {
         initializing = false;
-        current_menu = "MAIN";
+        current_menu = MENU_MAIN;
 
         return "DR EVIL\nMAIN (? 1 3 4 5 7 X *)";
     }
@@ -2754,7 +2754,7 @@ auto finishTgtBaseShot = [&]() -> std::string
 {
     prepareTgtBaseShotForObserverCorrections();
 
-    current_menu = "FM1_BASE_PIECE";
+    current_menu = MENU_FM1_BASE_PIECE;
 
     return "BASE PIECE (P *): " + std::to_string(base_piece_index + 1);
 };
@@ -2973,33 +2973,40 @@ if(!fm4.empty())
 
     if(cmd=="*")
     {
-        current_menu="MAIN";
+        current_menu = MENU_MAIN;
         return drPrefix("MAIN",mainMenu());
     }
 
 //////////////////////////////////////////////////
-// MAIN
+// MENU DISPATCH — switch/case
 //////////////////////////////////////////////////
 
-    if(current_menu=="MAIN")
+    // Variables estáticas de menús (fuera del switch)
+    static std::vector<double> fm4_lr;
+    static std::vector<double> fm4_ad;
+    static std::vector<double> fm4_ud;
+
+    switch(current_menu)
+    {
+    case MENU_MAIN:
     {
         if(cmd=="1")
         {
-            current_menu="FM";
+            current_menu = MENU_FM;
             mission_active=true;
             return drPrefix("FM",fireMenu());
         }
 
         if(cmd=="3")
         {
-            current_menu = "TARGET";
+            current_menu = MENU_TARGET;
             input_stage = 0;
             return "TGT:";
         }
 
         if(cmd=="4")
         {
-            current_menu = "OBS";
+            current_menu = MENU_OBS;
             input_stage = 0;
 
             if(obs_current_index <= 0)
@@ -3012,13 +3019,13 @@ if(!fm4.empty())
 
         if(cmd=="5")
         {
-            current_menu="AFU";
+            current_menu = MENU_AFU;
             return afuMenu();
         }
 
         if(cmd=="7")
         {
-            current_menu="MAP_MODEL";
+            current_menu = MENU_MAP_MODEL;
             input_stage=0;
 
             return "MAX E (P *): " + std::to_string((int)map_e_max);
@@ -3035,7 +3042,7 @@ if(!fm4.empty())
 // TARGET
 //////////////////////////////////////////////////
 
-if(current_menu=="TARGET")
+case MENU_TARGET:
 {
     static int temp_knpt = 0;
 
@@ -3066,7 +3073,7 @@ if(current_menu=="TARGET")
 
     if(cmd=="*")
     {
-        current_menu = "MAIN";
+        current_menu = MENU_MAIN;
         input_stage = 0;
         return "MAIN (? 1 3 4 5 7 X *)";
     }
@@ -3134,7 +3141,7 @@ if(current_menu=="TARGET")
         targets[temp_knpt] = {tgt_e, tgt_n, tgt_alt};
         current_knpt = temp_knpt;
 
-        current_menu = "MAIN";
+        current_menu = MENU_MAIN;
         input_stage = 0;
 
         main_inputs.push_back("TARGET");
@@ -3152,24 +3159,24 @@ if(current_menu=="TARGET")
 // AFU
 //////////////////////////////////////////////////
 
-    if(current_menu=="AFU")
+    case MENU_AFU:
     {
         if(cmd=="1")
         {
-             current_menu="ART_TYPE";
+             current_menu = MENU_ART_TYPE;
             return "ART (105/155):";
         }
     
         if(cmd=="3")   
         {
-            current_menu="MET";
+            current_menu = MENU_MET;
             input_stage=0;
             return "DIR:";
         }
 
         if(cmd=="5")
         {
-            current_menu="AMMO";
+            current_menu = MENU_AMMO;
             input_stage=0;
             return ammoMenu();
         }
@@ -3181,12 +3188,12 @@ if(current_menu=="TARGET")
 // ARTILLERY TYPE
 //////////////////////////////////////////////////
 
-    if(current_menu=="ART_TYPE")
+    case MENU_ART_TYPE:
     {
         if(cmd=="105" || cmd=="155")
         {
             artillery_type = cmd;
-            current_menu="COB_QTY";
+            current_menu = MENU_COB_QTY;
             return "QTY PIECE:";
         }
 
@@ -3197,7 +3204,7 @@ if(current_menu=="TARGET")
 // AMMO
 //////////////////////////////////////////////////
 
-    if(current_menu=="AMMO")
+    case MENU_AMMO:
     {
         if(cmd=="I")
         {
@@ -3226,7 +3233,7 @@ if(current_menu=="TARGET")
 
             ammo_input_active=false;
             input_stage=0;
-            current_menu="AFU";
+            current_menu = MENU_AFU;
 
             return "AMMO STORED\nAFU INDEX (? 1 3 5 *)";
         }
@@ -3236,7 +3243,7 @@ if(current_menu=="TARGET")
             ammo_proj_wt=std::stod(cmd);
             ammo_input_active=false;
             input_stage=0;
-            current_menu="AFU";
+            current_menu = MENU_AFU;
             return "AMMO STORED\nAFU INDEX (? 1 3 5 *)";
         }
     }
@@ -3245,7 +3252,7 @@ if(current_menu=="TARGET")
 // COB DOCTRINAL (GB + DIR DIST IV)
 //////////////////////////////////////////////////
 
-    if(current_menu=="COB_QTY")
+    case MENU_COB_QTY:
     {
         if(cmd=="P")
             return "QTY PIECE (P *): " + std::to_string(cob_expected_qty);
@@ -3259,15 +3266,15 @@ if(current_menu=="TARGET")
 
         cob_current_index = 0;
 
-        current_menu = "COB_BASE";
+        current_menu = MENU_COB_BASE;
         return "BASE PIECE (P *): " + std::to_string(base_piece_index + 1);
     }
 
-    if(current_menu=="COB_BASE")
+    case MENU_COB_BASE:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_QTY";
+            current_menu = MENU_COB_QTY;
             return "QTY PIECE (P *): " + std::to_string(cob_expected_qty);
         }
 
@@ -3286,14 +3293,14 @@ if(current_menu=="TARGET")
 
         base_piece_index = bp - 1;
 
-        current_menu = "COB_GB_E";
+        current_menu = MENU_COB_GB_E;
         return "GB E (P *): " + std::to_string((int)gb_e);
     }
-    if(current_menu=="COB_GB_E")
+    case MENU_COB_GB_E:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_BASE";
+            current_menu = MENU_COB_BASE;
             return "BASE PIECE (P *): " + std::to_string(base_piece_index + 1);
         }
 
@@ -3302,15 +3309,15 @@ if(current_menu=="TARGET")
         if(!v.empty())
             gb_e = std::stod(v);
 
-        current_menu = "COB_GB_N";
+        current_menu = MENU_COB_GB_N;
         return "GB N (P *): " + std::to_string((int)gb_n);
     }
 
-    if(current_menu=="COB_GB_N")
+    case MENU_COB_GB_N:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_GB_E";
+            current_menu = MENU_COB_GB_E;
             return "GB E (P *): " + std::to_string((int)gb_e);
         }
 
@@ -3319,15 +3326,15 @@ if(current_menu=="TARGET")
         if(!v.empty())
             gb_n = std::stod(v);
 
-        current_menu = "COB_GB_ALT";
+        current_menu = MENU_COB_GB_ALT;
         return "GB ALT (P *): " + std::to_string((int)gb_alt);
     }
 
-    if(current_menu=="COB_GB_ALT")
+    case MENU_COB_GB_ALT:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_GB_N";
+            current_menu = MENU_COB_GB_N;
             return "GB N (P *): " + std::to_string((int)gb_n);
         }
 
@@ -3340,19 +3347,19 @@ if(current_menu=="TARGET")
 
         if(cob_expected_qty <= 0)
         {
-            current_menu="MAIN";
+            current_menu = MENU_MAIN;
             return "COB STORED\nMAIN (? 1 3 4 5 7 X *)";
         }
 
-        current_menu = "COB_AZ_LAY";
+        current_menu = MENU_COB_AZ_LAY;
         return "AZ LAY (P *): " + std::to_string((int)az_lay);
     }
 
-    if(current_menu=="COB_AZ_LAY")
+    case MENU_COB_AZ_LAY:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_GB_ALT";
+            current_menu = MENU_COB_GB_ALT;
             return "GB ALT (P *): " + std::to_string((int)gb_alt);
         }
 
@@ -3361,15 +3368,15 @@ if(current_menu=="TARGET")
         if(!v.empty())
             az_lay = std::stod(v);
 
-        current_menu = "COB_REF_DEF";
+        current_menu = MENU_COB_REF_DEF;
         return "REF DEF (P *): " + std::to_string(def_base);
     }
 
-    if(current_menu=="COB_REF_DEF")
+    case MENU_COB_REF_DEF:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_AZ_LAY";
+            current_menu = MENU_COB_AZ_LAY;
             return "AZ LAY (P *): " + std::to_string((int)az_lay);
         }
 
@@ -3391,32 +3398,32 @@ if(current_menu=="TARGET")
 
         if(cob_expected_qty <= 0)
         {
-            current_menu="MAIN";
+            current_menu = MENU_MAIN;
             return "COB STORED\nMAIN (? 1 3 4 5 7 X *)";
         }
 
-        current_menu = "COB_DIR";
+        current_menu = MENU_COB_DIR;
 
         std::stringstream ss;
         ss << "#" << cob_current_index << " DIR (P *): " << (int)temp_dir;
         return ss.str();
     }
 
-    if(current_menu=="COB_DIR")
+    case MENU_COB_DIR:
     {
         if(cmd=="P")
         {
             if(cob_current_index > 1)
             {
                 cob_current_index--;
-                current_menu = "COB_IV";
+                current_menu = MENU_COB_IV;
                 
                 std::stringstream ss;
                 ss << "#" << cob_current_index << " IV (P *): " << (int)temp_iv;
                 return ss.str();
             }
 
-            current_menu = "COB_REF_DEF";
+            current_menu = MENU_COB_REF_DEF;
             return "REF DEF (P *): " + std::to_string(def_base);
         }
 
@@ -3425,18 +3432,18 @@ if(current_menu=="TARGET")
         if(!v.empty())
             temp_dir = std::stod(v);
 
-        current_menu = "COB_DIST";
+        current_menu = MENU_COB_DIST;
 
         std::stringstream ss;
         ss << "#" << cob_current_index << " DIST (P *): " << (int)temp_dist;
         return ss.str();
     }
 
-    if(current_menu=="COB_DIST")
+    case MENU_COB_DIST:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_DIR";
+            current_menu = MENU_COB_DIR;
 
             std::stringstream ss;
             ss << "#" << cob_current_index << " DIR (P *): " << (int)temp_dir;
@@ -3448,18 +3455,18 @@ if(current_menu=="TARGET")
         if(!v.empty())
             temp_dist = std::stod(v);
 
-        current_menu = "COB_IV";
+        current_menu = MENU_COB_IV;
 
         std::stringstream ss;
         ss << "#" << cob_current_index << " IV (P *): " << (int)temp_iv;
         return ss.str();
     }
 
-    if(current_menu=="COB_IV")
+    case MENU_COB_IV:
     {
         if(cmd=="P")
         {
-            current_menu = "COB_DIST";
+            current_menu = MENU_COB_DIST;
 
             std::stringstream ss;
             ss << "#" << cob_current_index << " DIST (P *): " << (int)temp_dist;
@@ -3500,11 +3507,11 @@ if(current_menu=="TARGET")
 
         if(cob_current_index > cob_expected_qty)
         {
-            current_menu="MAIN";
+            current_menu = MENU_MAIN;
             return "COB STORED\nMAIN (? 1 3 4 5 7 X *)";
         }
 
-        current_menu = "COB_DIR";
+        current_menu = MENU_COB_DIR;
 
         std::stringstream ss;
         ss << "#" << cob_current_index << " DIR (P *): " << (int)temp_dir;
@@ -3515,11 +3522,11 @@ if(current_menu=="TARGET")
 // OBS / PO
 //////////////////////////////////////////////////
 
-if(current_menu=="OBS")
+case MENU_OBS:
 {
     if(cmd=="*")
     {
-        current_menu = "MAIN";
+        current_menu = MENU_MAIN;
         input_stage = 0;
         return "MAIN (? 1 3 4 5 7 X *)";
     }
@@ -3679,7 +3686,7 @@ if(current_menu=="OBS")
 
         BasicEngine::obs_id = obs_current_index;
 
-        current_menu = "MAIN";
+        current_menu = MENU_MAIN;
         input_stage = 0;
 
         return "PO " + std::to_string(obs.id) + " STORED\nMAIN (? 1 3 4 5 7 X *)";
@@ -3690,7 +3697,7 @@ if(current_menu=="OBS")
 // MAP MODEL
 //////////////////////////////////////////////////
 
-if(current_menu=="MAP_MODEL")
+case MENU_MAP_MODEL:
 {
     // 🔙 BACK CON P
     if(cmd=="P")
@@ -3793,7 +3800,7 @@ if(current_menu=="MAP_MODEL")
                 Stanag4355::cfg_wind_spd = zones[best_idx].wind_spd;
             }
 
-            current_menu="MAIN";
+            current_menu = MENU_MAIN;
             input_stage=0;
             
             return "MAP STORED\nMAIN (? 1 3 4 5 7 X *)";
@@ -3806,7 +3813,7 @@ if(current_menu=="MAP_MODEL")
 // MET
 //////////////////////////////////////////////////
 
-    if(current_menu=="MET")
+    case MENU_MET:
     {
         switch(input_stage)
         {
@@ -3822,7 +3829,7 @@ if(current_menu=="MAP_MODEL")
 
             case 2:
                 temperature = std::stod(cmd);
-                current_menu="AFU";
+                current_menu = MENU_AFU;
                 input_stage=0;
 
                 return "MET STORED\nAFU INDEX (? 1 3 5 *)";
@@ -3832,7 +3839,7 @@ if(current_menu=="MAP_MODEL")
 // FM
 //////////////////////////////////////////////////
 
-    if(current_menu=="FM")
+case MENU_FM:
     {
         // 🔥 VOLVER A CARGA AUTOMATICA
         
@@ -4028,7 +4035,7 @@ if(current_menu=="MAP_MODEL")
         if(cmd=="1")
         {
             mission_type = "AREA FIRE";
-            current_menu = "FM1_TGT";
+            current_menu = MENU_FM1_TGT;
             input_stage = 0;
 
             return "TGT (? 1 2 3 P *)";
@@ -4040,7 +4047,7 @@ if(current_menu=="MAP_MODEL")
             active_fm1_def_reverse = false;
             active_fm1_transport_qe_shape = false;
 
-            current_menu="REG";
+            current_menu = MENU_REG;
 
             if(reg_data_available)
             {
@@ -4054,19 +4061,19 @@ if(current_menu=="MAP_MODEL")
 
         if(cmd=="3")    // 🔥 FM3 DOCTRINAL
         {
-            current_menu = "SHIFT_PREV_DIR";
+            current_menu = MENU_SHIFT_PREV_DIR;
             return "PREV DIR:";
         }
 
         if(cmd=="4")   // 🔥 FM4 E.A. Y P.M.I.
         {
-            current_menu = "FM4_LR";
+            current_menu = MENU_FM4_LR;
             return "IMPACT L/R (ej: L50 o R50):";
         }
 
         if(cmd=="S")
         {
-            current_menu="SHEAF";
+            current_menu = MENU_SHEAF;
             return "SHEAF (CONV/OPEN):";
         }
 
@@ -4138,7 +4145,7 @@ if(current_menu=="MAP_MODEL")
         // SHIFT oculto
        if(cmd=="T")
         {
-            current_menu="SHIFT_PREV_DIR";
+            current_menu = MENU_SHIFT_PREV_DIR;
             return "PREV DIR:";
         }
 
@@ -4167,7 +4174,7 @@ if(current_menu=="MAP_MODEL")
 
                 msg << "\nMAIN (? 1 3 4 5 7 X *)";
 
-                current_menu = "MAIN";
+                current_menu = MENU_MAIN;
                 return msg.str();
             }
 
@@ -4210,7 +4217,7 @@ if(current_menu=="MAP_MODEL")
             fire_phase++;
 
             last_solution = result;
-            current_menu = "COMP_CORR";
+            current_menu = MENU_COMP_CORR;
             ffe_mode = false;
             chg_allowed = true;
             return result + "COMP CORR (Y N P *)\nTESON EVIL";
@@ -4223,20 +4230,20 @@ if(current_menu=="MAP_MODEL")
 // FM1 - TGT SUBMENU
 //////////////////////////////////////////////////
 
-    if(current_menu=="FM1_TGT")
+    case MENU_FM1_TGT:
     {
         if(cmd=="1")
         {
             fm1_tgt_method = 1;
             input_stage = 0;
-            current_menu = "FM1_GRID";
+            current_menu = MENU_FM1_GRID;
             return "TGT/KNPT:";
         }
 
         if(cmd=="2")
         {
             fm1_tgt_method = 2;
-            current_menu = "FM1_TRANSPORT";
+            current_menu = MENU_FM1_TRANSPORT;
             input_stage = 0;
             return "DESDE:";
         }
@@ -4244,20 +4251,20 @@ if(current_menu=="MAP_MODEL")
         if(cmd=="3")
         {
             fm1_tgt_method = 3;
-            current_menu = "FM1_POLAR";
+            current_menu = MENU_FM1_POLAR;
             input_stage = 0;
             return "AZ:";
         }
 
         if(cmd=="P")
         {
-            current_menu = "FM";
+            current_menu = MENU_FM;
             return drPrefix("FM",fireMenu());
         }
 
         if(cmd=="*")
         {
-            current_menu = "FM";
+            current_menu = MENU_FM;
             return drPrefix("FM",fireMenu());
         }
 
@@ -4268,7 +4275,7 @@ if(current_menu=="MAP_MODEL")
 // FM1 - CUADRICULA
 //////////////////////////////////////////////////
 
-if(current_menu=="FM1_GRID")
+case MENU_FM1_GRID:
 {
     // 🔙 BACK CON P
     if(cmd=="P")
@@ -4330,7 +4337,7 @@ if(current_menu=="FM1_GRID")
 
             if(!(has_cob && has_target && has_ammo))
             {
-                current_menu = "FM";
+                current_menu = MENU_FM;
 
                 std::stringstream msg;
                 msg << "DATA INCOMPLETE\nMISSING:";
@@ -4383,7 +4390,7 @@ if(current_menu=="FM1_GRID")
 // FM1 - TRANSPORTE
 //////////////////////////////////////////////////
 
-if(current_menu=="FM1_TRANSPORT")
+case MENU_FM1_TRANSPORT:
 {
     // 🔙 BACK CON P
     if(cmd=="P")
@@ -4515,7 +4522,7 @@ if(current_menu=="FM1_TRANSPORT")
 
             if(!(has_cob && has_target && has_ammo))
             {
-                current_menu = "FM";
+                current_menu = MENU_FM;
 
                 std::stringstream msg;
                 msg << "DATA INCOMPLETE\nMISSING:";
@@ -4552,7 +4559,7 @@ if(current_menu=="FM1_TRANSPORT")
 // FM1 - POLARES
 //////////////////////////////////////////////////
 
-if(current_menu=="FM1_POLAR")
+case MENU_FM1_POLAR:
 {
     // 🔙 BACK
     if(cmd=="P")
@@ -4638,7 +4645,7 @@ if(current_menu=="FM1_POLAR")
 
             if(!(has_cob && has_target && has_ammo))
             {
-                current_menu = "FM";
+                current_menu = MENU_FM;
 
                 std::stringstream msg;
                 msg << "DATA INCOMPLETE\nMISSING:";
@@ -4669,15 +4676,11 @@ if(current_menu=="FM1_POLAR")
 // FM4 - E.A. Y P.M.I.
 //////////////////////////////////////////////////
 
-    static std::vector<double> fm4_lr;
-    static std::vector<double> fm4_ad;
-    static std::vector<double> fm4_ud;
-
-    if(current_menu=="FM4_LR")
+    case MENU_FM4_LR:
     {
         if(cmd=="X")
         {
-            current_menu="FM";
+            current_menu = MENU_FM;
             return "FM (? 1 2 3 4 S P X *)";
         }
 
@@ -4695,11 +4698,11 @@ if(current_menu=="FM1_POLAR")
             last_inputs.push_back("R" + std::to_string((int)val));
         }
 
-        current_menu="FM4_AD";
+        current_menu = MENU_FM4_AD;
         return "IMPACT A/D (A o D):";
     }
 
-    if(current_menu=="FM4_AD")
+    case MENU_FM4_AD:
     {
         std::string dir = cmd.substr(0,1);
         double val = std::stod(cmd.substr(1));
@@ -4715,11 +4718,11 @@ if(current_menu=="FM1_POLAR")
             last_inputs.push_back("D" + std::to_string((int)val));
         }
 
-        current_menu="FM4_UD";
+        current_menu = MENU_FM4_UD;
         return "IMPACT U/D (U o D):";
     }
 
-    if(current_menu=="FM4_UD")
+    case MENU_FM4_UD:
     {
         std::string dir = cmd.substr(0,1);
         double val = std::stod(cmd.substr(1));
@@ -4736,15 +4739,15 @@ if(current_menu=="FM1_POLAR")
         }
 
         // Preguntar si hay más impactos
-        current_menu="FM4_NEXT";
+        current_menu = MENU_FM4_NEXT;
         return "ADD MORE? (Y/N)";
     }
 
-    if(current_menu=="FM4_NEXT")
+    case MENU_FM4_NEXT:
     {
         if(cmd=="Y")
         {
-            current_menu="FM4_LR";
+            current_menu = MENU_FM4_LR;
             return "IMPACT L/R:";
         }
 
@@ -4780,7 +4783,7 @@ if(current_menu=="FM1_POLAR")
 
             last_solution = result;
 
-            current_menu="FM";
+            current_menu = MENU_FM;
 
             return result + "FM (? 1 2 3 4 R E P X *)";
         }
@@ -4791,14 +4794,14 @@ if(current_menu=="FM1_POLAR")
 // SHIFT DOCTRINAL
 //////////////////////////////////////////////////
 
-if(current_menu=="SHIFT_PREV_DIR")
+case MENU_SHIFT_PREV_DIR:
 {
     shift_prev_dir = cmd;
-    current_menu="SHIFT_PREV_LR";
+    current_menu = MENU_SHIFT_PREV_LR;
     return "PREV L/R:";
 }
 
-if(current_menu=="SHIFT_PREV_LR")
+case MENU_SHIFT_PREV_LR:
 {
     std::string v = normStr(cmd);
 
@@ -4831,11 +4834,11 @@ if(current_menu=="SHIFT_PREV_LR")
         shift_prev_lr = 0.0;
     }
 
-    current_menu="SHIFT_PREV_AD";
+    current_menu = MENU_SHIFT_PREV_AD;
     return "PREV A/D:";
 }
 
-if(current_menu=="SHIFT_PREV_AD")
+case MENU_SHIFT_PREV_AD:
 {
     std::string v = normStr(cmd);
 
@@ -4868,11 +4871,11 @@ if(current_menu=="SHIFT_PREV_AD")
         shift_prev_ad = 0.0;
     }
 
-    current_menu="SHIFT_PREV_UD";
+    current_menu = MENU_SHIFT_PREV_UD;
     return "PREV U/D:";
 }
 
-if(current_menu=="SHIFT_PREV_UD")
+case MENU_SHIFT_PREV_UD:
 {
     std::string v = normStr(cmd);
 
@@ -4905,11 +4908,11 @@ if(current_menu=="SHIFT_PREV_UD")
         shift_prev_ud = 0.0;
     }
 
-    current_menu="SHIFT_DIR";
+    current_menu = MENU_SHIFT_DIR;
     return "DIR:";
 }
 
-if(current_menu=="SHIFT_DIR")
+case MENU_SHIFT_DIR:
 {
     std::string v = normStr(cmd);
 
@@ -4938,14 +4941,14 @@ if(current_menu=="SHIFT_DIR")
 
     shift_angle = computeAngleTFromDir(dir_val);
 
-    current_menu="SHIFT_ANGLE";
+    current_menu = MENU_SHIFT_ANGLE;
 
     std::stringstream ss;
     ss << "ANGLE T: " << (int)std::round(shift_angle);
     return ss.str();
 }
 
-if(current_menu=="SHIFT_ANGLE")
+case MENU_SHIFT_ANGLE:
 {
     std::string v = normStr(cmd);
 
@@ -4954,11 +4957,11 @@ if(current_menu=="SHIFT_ANGLE")
     if(!v.empty())
         shift_angle = std::stod(v);
 
-    current_menu="SHIFT_LR";
+    current_menu = MENU_SHIFT_LR;
     return "L/R SHIFT:";
 }
 
-if(current_menu=="SHIFT_LR")
+case MENU_SHIFT_LR:
 {
     std::string v = normStr(cmd);
     double val = 0.0;
@@ -4991,11 +4994,11 @@ if(current_menu=="SHIFT_LR")
         shift_prev_lr = 0.0;
     }
 
-    current_menu="SHIFT_AD";
+    current_menu = MENU_SHIFT_AD;
     return "A/D SHIFT:";
 }
 
-if(current_menu=="SHIFT_AD")
+case MENU_SHIFT_AD:
 {
     std::string v = normStr(cmd);
     double val = 0.0;
@@ -5028,11 +5031,11 @@ if(current_menu=="SHIFT_AD")
         shift_prev_ad = 0.0;
     }
 
-    current_menu="SHIFT_UD";
+    current_menu = MENU_SHIFT_UD;
     return "U/D SHIFT:";
 }
 
-if(current_menu=="SHIFT_UD")
+case MENU_SHIFT_UD:
 {
     std::string v = normStr(cmd);
     double val = 0.0;
@@ -5085,7 +5088,7 @@ if(current_menu=="SHIFT_UD")
 
     fire_phase = 3;
 
-    current_menu="FM";
+    current_menu = MENU_FM;
 
     return "SHIFT APPLIED\nFM (? 1 2 3 4 S P X *)";
 }
@@ -5094,7 +5097,7 @@ if(current_menu=="SHIFT_UD")
 // SHIFT MENU
 //////////////////////////////////////////////////
 
-if(current_menu=="SHIFT")
+case MENU_SHIFT:
 {
     std::string v = normStr(cmd);
 
@@ -5140,7 +5143,7 @@ if(current_menu=="SHIFT")
         inst_last_dir
     );
 
-    current_menu="FM";
+    current_menu = MENU_FM;
     return "SHIFT APPLIED\nFM (? 1 2 3 4 S P X *)";
 }
 
@@ -5148,19 +5151,19 @@ if(current_menu=="SHIFT")
 // SHEAF MENU
 //////////////////////////////////////////////////
 
-    if(current_menu=="SHEAF")
+    case MENU_SHEAF:
     {
         if(cmd=="CONV")
         {
             sheaf_mode="CONV";
-            current_menu="FM";
+            current_menu = MENU_FM;
             return "SHEAF CONVERGED\nFM (? 1 2 3 4 S P X *)";
         }
 
         if(cmd=="OPEN")
         {
             sheaf_mode="OPEN";
-            current_menu="SHEAF_WIDTH"; // 🔥 NUEVO PASO
+            current_menu = MENU_SHEAF_WIDTH; // 🔥 NUEVO PASO
             return "OPEN WIDTH (MILS):";
         }
 
@@ -5171,13 +5174,13 @@ if(current_menu=="SHIFT")
 // SHEAF WIDTH (NUEVO)
 //////////////////////////////////////////////////
 
-    if(current_menu=="SHEAF_WIDTH")
+    case MENU_SHEAF_WIDTH:
     {
         try
         {
             sheaf_width = std::stod(cmd);
 
-            current_menu="FM";
+            current_menu = MENU_FM;
 
             std::stringstream ss;
             ss << "SHEAF OPEN WIDTH " << sheaf_width << "\n";
@@ -5195,7 +5198,7 @@ if(current_menu=="SHIFT")
 // REG
 //////////////////////////////////////////////////
 
-   if(current_menu=="REG")
+   case MENU_REG:
 {
         // 🔥 PREGUNTA REUTILIZAR REG
     if(input_stage == -1)
@@ -5220,7 +5223,7 @@ if(current_menu=="SHIFT")
             std::string result = renderFire(false);
 
             last_solution = result;
-            current_menu = "COMP_CORR";
+            current_menu = MENU_COMP_CORR;
             input_stage = 0;
             chg_allowed = true;
 
@@ -5297,7 +5300,7 @@ if(current_menu=="SHIFT")
                 last_inputs.push_back("FUZE PDA");
             }
 
-            current_menu = "REG_BASE_PIECE";
+            current_menu = MENU_REG_BASE_PIECE;
             return "BASE PIECE (P *): " + std::to_string(base_piece_index + 1);
         }
 
@@ -5306,7 +5309,11 @@ if(current_menu=="SHIFT")
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_dist_solution : std::stod(v);
 
-            reg_dist = reg_input - last_dist_solution;
+            // 🔥 CORRECCION: 0 significa "sin correccion" (mantener reg_dist=0)
+            if(v.empty() || reg_input == 0)
+                reg_dist = 0;
+            else
+                reg_dist = reg_input - last_dist_solution;
 
             last_inputs.push_back("REG DIST " + std::to_string((int)reg_input));
 
@@ -5482,7 +5489,7 @@ if(current_menu=="SHIFT")
             std::string result = renderFire(false);
 
             last_solution = result;
-            current_menu = "COMP_CORR";
+            current_menu = MENU_COMP_CORR;
             input_stage = 0;
             chg_allowed = true;
 
@@ -5497,11 +5504,11 @@ if(current_menu=="SHIFT")
 // REG - CONFIRMAR BASE PIECE DESPUES DE FUZE
 //////////////////////////////////////////////////
 
-if(current_menu=="REG_BASE_PIECE")
+case MENU_REG_BASE_PIECE:
 {
     if(cmd=="P")
     {
-        current_menu = "REG";
+        current_menu = MENU_REG;
         input_stage = 5;
         return "FUZE:";
     }
@@ -5542,12 +5549,12 @@ if(current_menu=="REG_BASE_PIECE")
     }
     catch(...)
     {
-        current_menu = "REG";
+        current_menu = MENU_REG;
         input_stage = 5;
         return "ERROR: NO SOLUTION";
     }
 
-    current_menu = "REG";
+    current_menu = MENU_REG;
     input_stage = 6;
 
     std::stringstream ss;
@@ -5559,11 +5566,11 @@ if(current_menu=="REG_BASE_PIECE")
 // FM1 - CONFIRMAR BASE PIECE ANTES DEL DISPARO
 //////////////////////////////////////////////////
 
-if(current_menu=="FM1_BASE_PIECE")
+case MENU_FM1_BASE_PIECE:
 {
     if(cmd=="P")
     {
-        current_menu = "FM";
+        current_menu = MENU_FM;
         return drPrefix("FM", fireMenu());
     }
 
@@ -5626,7 +5633,7 @@ if(current_menu=="FM1_BASE_PIECE")
     mission_log.push_back(shot);
 
     last_solution = result;
-    current_menu = "COMP_CORR";
+    current_menu = MENU_COMP_CORR;
     chg_allowed = true;
 
     // IMPORTANTE:
@@ -5644,7 +5651,7 @@ if(current_menu=="FM1_BASE_PIECE")
 // COMP CORR
 //////////////////////////////////////////////////
 
-if(current_menu=="COMP_CORR")
+case MENU_COMP_CORR:
 {
     // SOLO permitir cambio de carga si viene de un disparo
     if((cmd=="" || cmd=="X") && chg_allowed)
@@ -5652,14 +5659,14 @@ if(current_menu=="COMP_CORR")
         chg_allowed = false;
         chg_edit_mode = true;
         chg_wait_value = false;
-        current_menu = "CHG_EDIT";
+        current_menu = MENU_CHG_EDIT;
         return "LOT: ?";
     }
 
     // Y = TIME REG
     if(cmd=="Y")
     {
-        current_menu = "TIME_REG";
+        current_menu = MENU_TIME_REG;
         return "TIME REG (Y N P *)";
     }
 
@@ -5689,14 +5696,14 @@ if(cmd=="N")
     inst_ad_shift = 0.0;
     inst_ud_shift = 0.0;
 
-    current_menu = "INST_PREV_DIR";
+    current_menu = MENU_INST_PREV_DIR;
     return "PREV DIR (*):";
 }
 
     // P = VOLVER AL MENU FM
     if(cmd=="P")
     {
-        current_menu = "FM";
+        current_menu = MENU_FM;
         return drPrefix("FM", fireMenu());
     }
 
@@ -5707,11 +5714,11 @@ if(cmd=="N")
 // ESP. INSTANTANEA / PDA SHIFT CORR
 //////////////////////////////////////////////////
 
-if(current_menu=="INST_PREV_DIR")
+case MENU_INST_PREV_DIR:
 {
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -5720,21 +5727,21 @@ if(current_menu=="INST_PREV_DIR")
     if(!v.empty())
         inst_prev_dir = std::stod(v);
 
-    current_menu = "INST_PREV_LR";
+    current_menu = MENU_INST_PREV_LR;
     return "PREV L/R (P*):";
 }
 
-if(current_menu=="INST_PREV_LR")
+case MENU_INST_PREV_LR:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_PREV_DIR";
+        current_menu = MENU_INST_PREV_DIR;
         return "PREV DIR (*):";
     }
 
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -5765,21 +5772,21 @@ if(current_menu=="INST_PREV_LR")
             inst_prev_lr = val;
     }
 
-    current_menu = "INST_PREV_AD";
+    current_menu = MENU_INST_PREV_AD;
     return "PREV A/D (P*):";
 }
 
-if(current_menu=="INST_PREV_AD")
+case MENU_INST_PREV_AD:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_PREV_LR";
+        current_menu = MENU_INST_PREV_LR;
         return "PREV L/R (P*):";
     }
 
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -5810,21 +5817,21 @@ if(current_menu=="INST_PREV_AD")
             inst_prev_ad = val;
     }
 
-    current_menu = "INST_PREV_UD";
+    current_menu = MENU_INST_PREV_UD;
     return "PREV U/D (P*):";
 }
 
-if(current_menu=="INST_PREV_UD")
+case MENU_INST_PREV_UD:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_PREV_AD";
+        current_menu = MENU_INST_PREV_AD;
         return "PREV A/D (P*):";
     }
 
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -5855,7 +5862,7 @@ if(current_menu=="INST_PREV_UD")
             inst_prev_ud = val;
     }
 
-    current_menu = "INST_DIR";
+    current_menu = MENU_INST_DIR;
 
     inst_new_dir = inst_last_dir;
 
@@ -5865,17 +5872,17 @@ if(current_menu=="INST_PREV_UD")
     return ss.str();
 }
 
-if(current_menu=="INST_DIR")
+case MENU_INST_DIR:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_PREV_UD";
+        current_menu = MENU_INST_PREV_UD;
         return "PREV U/D (P*):";
     }
 
     if(cmd=="X" || cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -5909,7 +5916,7 @@ if(current_menu=="INST_DIR")
     // contra la línea PIEZA BASE -> TARGET
     inst_angle_t = computeAngleTFromDir(inst_new_dir);
 
-    current_menu = "INST_ANGLE_T";
+    current_menu = MENU_INST_ANGLE_T;
 
     std::stringstream ss;
     ss << "ANG T (P*): " << (int)std::round(inst_angle_t);
@@ -5917,11 +5924,11 @@ if(current_menu=="INST_DIR")
     return ss.str();
 }
 
-if(current_menu=="INST_ANGLE_T")
+case MENU_INST_ANGLE_T:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_DIR";
+        current_menu = MENU_INST_DIR;
 
         std::stringstream ss;
         ss << "DIR (P X): " << (int)std::round(inst_last_dir);
@@ -5931,7 +5938,7 @@ if(current_menu=="INST_ANGLE_T")
 
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -5939,15 +5946,15 @@ if(current_menu=="INST_ANGLE_T")
     // No se escribe manualmente.
     inst_angle_t = computeAngleTFromDir(inst_new_dir);
 
-    current_menu = "INST_LR_SHIFT";
+    current_menu = MENU_INST_LR_SHIFT;
     return "(L/R) SHIFT (P*):";
 }
 
-if(current_menu=="INST_LR_SHIFT")
+case MENU_INST_LR_SHIFT:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_ANGLE_T";
+        current_menu = MENU_INST_ANGLE_T;
 
         inst_angle_t = computeAngleTFromDir(inst_new_dir);
 
@@ -5959,7 +5966,7 @@ if(current_menu=="INST_LR_SHIFT")
 
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -5990,21 +5997,21 @@ if(current_menu=="INST_LR_SHIFT")
             inst_lr_shift = val;
     }
 
-    current_menu = "INST_AD_SHIFT";
+    current_menu = MENU_INST_AD_SHIFT;
     return "(A/D) SHIFT (P*):";
 }
 
-if(current_menu=="INST_AD_SHIFT")
+case MENU_INST_AD_SHIFT:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_LR_SHIFT";
+        current_menu = MENU_INST_LR_SHIFT;
         return "(L/R) SHIFT (P*):";
     }
 
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -6035,21 +6042,21 @@ if(current_menu=="INST_AD_SHIFT")
             inst_ad_shift = val;
     }
 
-    current_menu = "INST_UD_SHIFT";
+    current_menu = MENU_INST_UD_SHIFT;
     return "(U/D) SHIFT (P*):";
 }
 
-if(current_menu=="INST_UD_SHIFT")
+case MENU_INST_UD_SHIFT:
 {
     if(cmd=="P")
     {
-        current_menu = "INST_AD_SHIFT";
+        current_menu = MENU_INST_AD_SHIFT;
         return "(A/D) SHIFT (P*):";
     }
 
     if(cmd=="*")
     {
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         return "COMP CORR (Y N P *)";
     }
 
@@ -6137,7 +6144,7 @@ if(current_menu=="INST_UD_SHIFT")
     mission_log.push_back(shot);
 
     last_solution = result;
-    current_menu = "COMP_CORR";
+    current_menu = MENU_COMP_CORR;
 
     return result + "COMP CORR (Y N P *)\nTESON EVIL";
 }
@@ -6146,12 +6153,12 @@ if(current_menu=="INST_UD_SHIFT")
 // TIME REG / FUZE DOCTRINAL
 //////////////////////////////////////////////////
 
-    if(current_menu=="TIME_REG")
+    case MENU_TIME_REG:
     {
         // Flujo doctrinal del manual
         if(cmd=="Y")
         {
-            current_menu="TIME_REG_FUZE";
+            current_menu = MENU_TIME_REG_FUZE;
             fire_phase = 2;
             return std::string("FUZE (P*) ") + (fuze_time_mode ? "TIA" : "PDA");
         }
@@ -6159,27 +6166,27 @@ if(current_menu=="INST_UD_SHIFT")
         // Mantiene compatibilidad con la prueba vieja
         if(cmd=="P")
         {
-            current_menu="TIME_REG_INPUT";
+            current_menu = MENU_TIME_REG_INPUT;
             return "TIME CORR:";
         }
 
         if(cmd=="N")
         {
-            current_menu="FM";
+            current_menu = MENU_FM;
             return drPrefix("FM",fireMenu());
         }
 
         return "TIME REG (Y N P *)";
     }
 
-    if(current_menu=="TIME_REG_INPUT")
+    case MENU_TIME_REG_INPUT:
     {
         time_reg_correction=std::stod(cmd);
-        current_menu="FM";
+        current_menu = MENU_FM;
         return drPrefix("FM",fireMenu());
     }
 
-    if(current_menu=="TIME_REG_FUZE")
+    case MENU_TIME_REG_FUZE:
     {
         if(cmd=="PDA")
         {
@@ -6189,7 +6196,7 @@ if(current_menu=="INST_UD_SHIFT")
             hob = 0;
             time_reg_fuze_temporary = false;
 
-            current_menu = "UD_CORR";
+            current_menu = MENU_UD_CORR;
             return "(U/D) CORR (*)";
         }
 
@@ -6201,14 +6208,14 @@ if(current_menu=="INST_UD_SHIFT")
             hob = 0;
             time_reg_fuze_temporary = true;
 
-            current_menu = "TIME_REG_HOB";
+            current_menu = MENU_TIME_REG_HOB;
             return "TOTAL HOB (*):";
         }
 
         return std::string("FUZE (P*) ") + (fuze_time_mode ? "TIA" : "PDA");
     }
 
-    if(current_menu=="TIME_REG_HOB")
+    case MENU_TIME_REG_HOB:
     {
         hob = std::stod(cmd);
         last_inputs.push_back("HOB " + cmd);
@@ -6218,7 +6225,7 @@ if(current_menu=="INST_UD_SHIFT")
         fuze_time_mode = true;
         time_reg_fuze_temporary = true;
 
-        current_menu = "UD_CORR";
+        current_menu = MENU_UD_CORR;
         return "(U/D) CORR (*)";
     }
 
@@ -6226,7 +6233,7 @@ if(current_menu=="INST_UD_SHIFT")
 // U/D CORR
 //////////////////////////////////////////////////
 
-    if(current_menu=="UD_CORR")
+    case MENU_UD_CORR:
     {
         if(cmd=="X")
         {
@@ -6240,7 +6247,7 @@ if(current_menu=="INST_UD_SHIFT")
             ud_active = false;
             ud_corr = 0.0;
 
-            current_menu = "FM";
+            current_menu = MENU_FM;
             return drPrefix("FM", fireMenu());
         }
 
@@ -6270,7 +6277,7 @@ if(current_menu=="INST_UD_SHIFT")
             time_reg_fuze_temporary = false;
         }
 
-        current_menu = "COMP_CORR";
+        current_menu = MENU_COMP_CORR;
         chg_allowed = true;
 
         return result + "COMP CORR (Y N P *)\nTESON EVIL";
@@ -6280,7 +6287,7 @@ if(current_menu=="INST_UD_SHIFT")
 // DF CORR
 //////////////////////////////////////////////////
 
-if(current_menu=="DF_CORR")
+case MENU_DF_CORR:
 {
     std::stringstream ss(cmd);
     std::string dir; 
@@ -6335,7 +6342,7 @@ if(current_menu=="DF_CORR")
         return "DF CORR (ADD/DROP LEFT/RIGHT *)";
     }
 
-    current_menu="FM";
+    current_menu = MENU_FM;
     return drPrefix("FM",fireMenu());
 }
 
@@ -6343,7 +6350,7 @@ if(current_menu=="DF_CORR")
 // CHG EDIT (DOCTRINAL)
 //////////////////////////////////////////////////
 
-if(current_menu=="CHG_EDIT")
+case MENU_CHG_EDIT:
 {
     // Paso 1: LOT
     if(!chg_wait_value)
@@ -6363,7 +6370,7 @@ if(current_menu=="CHG_EDIT")
         chg_edit_mode = false;
         chg_wait_value = false;
 
-        current_menu = "FM";
+        current_menu = MENU_FM;
 
         return "CHG UPDATED\nFM (? 1 2 3 4 S P X *)";
     }
@@ -6376,6 +6383,10 @@ if(current_menu=="CHG_EDIT")
 //////////////////////////////////////////////////
 // DEFAULT
 //////////////////////////////////////////////////
+
+    default:
+        break;
+    } // switch(current_menu)
 
     return drPrefix("MAIN",mainMenu());
 
@@ -6396,7 +6407,7 @@ std::string BasicEngine::ammoMenu(){ return "AMMO FILE (? I *)"; }
 std::string BasicEngine::resetData()
 {
     fire_phase = 0;
-    current_menu="MAIN";
+    current_menu = MENU_MAIN;
     input_stage=0;
 
     cob_alt=0;
