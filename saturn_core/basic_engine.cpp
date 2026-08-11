@@ -29,7 +29,7 @@ double BasicEngine::obs_gz = 0;
 
 static std::string normStr(std::string s)
 {
-    // 🔥 eliminar caracteres basura (ENTER, TAB, etc)
+    //  eliminar caracteres basura (ENTER, TAB, etc)
     for(char& c : s)
     {
         if(c == '\n' || c == '\r' || c == '\t')
@@ -153,7 +153,7 @@ static void loadTablesFromCSV(const std::string& filename)
             [](const Row& a,const Row& b){ return a.d < b.d; });
     }
 
-    // 🔥 VALIDACIÓN DE DATOS CARGADOS
+    //  VALIDACIÓN DE DATOS CARGADOS
     int warnings = 0;
     for(const auto& it : firingTables)
     {
@@ -235,7 +235,7 @@ static int fire_phase = 0;
 // 3 SHIFT
 // 4 PMI
 
-// 🔥 COB DOCTRINAL VARIABLES
+//  COB DOCTRINAL VARIABLES
 static double gb_e = 0.0;
 static double gb_n = 0.0;
 static double gb_alt = 0.0;
@@ -248,18 +248,14 @@ static double temp_dir = 0.0;
 static double temp_dist = 0.0;
 static double temp_iv = 0.0;
 
-// 🔥 BASE PIECE DOCTRINAL (FALTABA)
+//  BASE PIECE DOCTRINAL (FALTABA)
 static int base_piece_index = 0;
 
-// 🔥 OPEN DOCTRINAL
+//  OPEN DOCTRINAL
 static double sheaf_width = 60.0; // ancho total en mils
 
-// 🔥 DOCTRINAL A
+//  DOCTRINAL A
 static bool all_guns_command = false; 
-
-// ==========================
-// DEFINICIONES GLOBALES PARA PDF
-// ==========================
 
 double map_e_max = 0;
 double map_e_min = 0;
@@ -268,13 +264,6 @@ double map_n_min = 0;
 double map_gz = 0;
 std::string map_spher = "";
 
-//////////////////////////////////////////////////
-// PDF GENERATOR (NUEVO - NO TOCAR NADA EXISTENTE)
-//////////////////////////////////////////////////
-
-// ==========================
-// VARIABLES GLOBALES NECESARIAS PARA PDF
-// ==========================
 
 static int def_base = 3200;
 static std::string artillery_type = "155";
@@ -293,7 +282,7 @@ struct ObserverData
 
 static std::map<int, ObserverData> observers;
 
-// 🔥 MULTI OBS DOCTRINAL
+//  MULTI OBS DOCTRINAL
 static int obs_expected_qty = 1;
 static int obs_current_index = 1;
 
@@ -305,18 +294,6 @@ static std::vector<std::string> main_inputs;
 
 static std::vector<std::string> last_inputs;
 
-std::string escapePDF(const std::string& text)
-{
-    std::string result;
-    for(char c : text)
-    {
-        if(c=='(' || c==')' || c=='\\')
-            result += '\\';
-        result += c;
-    }
-    return result;
-}
-
 struct ShotLog
 {
     std::string label;
@@ -326,672 +303,6 @@ struct ShotLog
 };
 
 static std::vector<ShotLog> mission_log;
-
-void saveReportPDF(const std::vector<std::string>& lines, int mission_counter)
-{
-    struct ShotRow
-    {
-        std::string cob;
-        std::string dist;
-        std::string az;
-        std::string def;
-        std::string chg;
-        std::string qe;
-        std::string tof;
-        std::string fuze;
-    };
-
-    auto startsWith = [](const std::string& s, const std::string& prefix) -> bool
-    {
-        return s.rfind(prefix, 0) == 0;
-    };
-
-    auto trim = [](const std::string& s) -> std::string
-    {
-        size_t start = 0;
-        while(start < s.size() && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r' || s[start] == '\n'))
-            ++start;
-
-        size_t end = s.size();
-        while(end > start && (s[end - 1] == ' ' || s[end - 1] == '\t' || s[end - 1] == '\r' || s[end - 1] == '\n'))
-            --end;
-
-        return s.substr(start, end - start);
-    };
-
-    auto pad = [](const std::string& s, int width, bool rightAlign = false) -> std::string
-    {
-        if((int)s.size() >= width)
-            return s.substr(0, width);
-
-        std::string spaces(width - s.size(), ' ');
-        return rightAlign ? (spaces + s) : (s + spaces);
-    };
-
-    auto makeSeparator = []() -> std::string
-    {
-        return "------------------------------------------------------------";
-    };
-
-    auto makeTableHeader = [&]() -> std::string
-    {
-        return "COB | DIST   | AZ   | DEF   | CHG | QE      | TOF   | FUZE        ";
-    };
-
-    auto makeTableRule = [&]() -> std::string
-    {
-       return "----+--------+------+-------+-----+---------+-------+-------------";
-    };
-
-    auto makeRowLine = [&](const ShotRow& r) -> std::string
-    {
-        return pad(r.cob, 3, true) + " | " +
-               pad(r.dist, 6, true) + " | " +
-               pad(r.az,   4, true) + " | " +
-               pad(r.def,  5, true) + " | " +
-               pad(r.chg,  3, true) + " | " +
-               pad(r.qe,   7, true) + " | " +
-               pad(r.tof,  5, true) + " | " +
-               pad(r.fuze, 11, false);
-    };
-
-    std::string fecha;
-    std::string tgt_alt = "0";
-    std::string tgt_n   = "0";
-    std::string tgt_e   = "0";
-
-    std::vector<ShotRow> base_rows;
-    std::vector<ShotRow> adjusted_rows;
-
-    int current_section = 0; // 0 ninguno, 1 base, 2 adjusted
-    bool shot_open = false;
-    ShotRow current_row;
-
-    auto flushShot = [&]()
-    {
-        if(!shot_open)
-            return;
-
-        // 🔥 FILTRAR SOLO PIEZA BASE
-        int piece_num = -1;
-
-        try
-        {
-            piece_num = std::stoi(current_row.cob);
-        }
-        catch(...)
-        {
-            piece_num = -1;
-        }
-
-        if(piece_num == base_piece_index + 1)
-        {
-            if(current_section == 1)
-            {
-                base_rows.push_back(current_row);
-            }
-            else if(current_section == 2)
-            {
-                adjusted_rows.push_back(current_row);
-            }
-        }
-
-        current_row = ShotRow();
-        shot_open = false;
-    };
-
-    // ==============================
-    // PARSEAR lines ACTUALES
-    // ==============================
-    for(size_t i = 0; i < lines.size(); i++)
-    {
-        std::string line = trim(lines[i]);
-        if(line.empty())
-            continue;
-
-        if(startsWith(line, "BASE FIRE"))
-        {
-            flushShot();
-            current_section = 1;
-            continue;
-        }
-
-        if(startsWith(line, "REGISTRATION") ||
-        startsWith(line, "TIME REG") ||
-        startsWith(line, "SHIFT (FM3)") ||
-        startsWith(line, "PMI (FM4)"))
-        {
-            flushShot();
-            current_section = 2; 
-            continue;
-        }
-
-        if(startsWith(line, "FECHA:"))
-        {
-            fecha = line.substr(6);
-            fecha = trim(fecha);
-            continue;
-        }
-
-        if(startsWith(line, "ALT "))
-        {
-            tgt_alt = trim(line.substr(4));
-            continue;
-        }
-
-        if(startsWith(line, "N "))
-        {
-            tgt_n = trim(line.substr(2));
-            continue;
-        }
-
-        if(startsWith(line, "E "))
-        {
-            tgt_e = trim(line.substr(2));
-            continue;
-        }
-
-        if(startsWith(line, "----- PIECE "))
-        {
-            flushShot();
-
-            current_row = ShotRow();
-            shot_open = true;
-
-            std::string tmp = line.substr(13); // correcto: empieza en el número
-            size_t spacePos = tmp.find(' ');
-            if(spacePos != std::string::npos)
-                current_row.cob = trim(tmp.substr(0, spacePos));
-            else
-                current_row.cob = trim(tmp);
-
-            continue;
-        }
-
-        if(!shot_open)
-            continue;
-
-        if(startsWith(line, "DIST "))
-        {
-            std::string val = trim(line.substr(5));
-
-            try
-            {
-                if(std::stod(val) <= 0)
-                {
-                    shot_open = false;
-                    continue;
-                }
-            }
-            catch(...)
-            {
-                shot_open = false;
-                continue;
-            }
-
-            current_row.dist = val;
-            continue;
-        }
-
-        if(startsWith(line, "AZ "))
-        {
-            current_row.az = trim(line.substr(3));
-            continue;
-        }
-
-        if(startsWith(line, "DEF "))
-        {
-            current_row.def = trim(line.substr(4));
-            continue;
-        }
-
-        if(startsWith(line, "CHG "))
-        {
-            current_row.chg = trim(line.substr(4));
-            continue;
-        }
-
-        if(startsWith(line, "QE "))
-        {
-            std::string val = trim(line.substr(3));
-
-            try
-            {
-                double qe_val = std::stod(val);
-
-                if(qe_val < -1000 || qe_val > 2000)
-                {
-                    shot_open = false;
-                    continue;
-                }
-            }
-            catch(...)
-            {
-                shot_open = false;
-                continue;
-            }
-
-            current_row.qe = val;
-            continue;
-        }
-
-        if(startsWith(line, "TOF "))
-        {
-            current_row.tof = trim(line.substr(4));
-            continue;
-        }
-
-        if(startsWith(line, "FUZE "))
-        {
-            current_row.fuze = trim(line.substr(5));
-            continue;
-        }
-    }
-
-    flushShot();
-
-    // ==============================
-    // ARMAR CUERPO DEL REPORTE
-    // ==============================
-    std::vector<std::string> body_lines;
-
-    // ==============================
-    // 🔥 CONTEXTO DOCTRINAL COMPLETO
-    // ==============================
-
-    body_lines.push_back("FECHA: " + fecha);
-    body_lines.push_back("");
-
-    // ==============================
-    // MAP MODEL
-    // ==============================
-    body_lines.push_back("MAP MODEL");
-    body_lines.push_back(makeSeparator());
-
-    std::stringstream mm;
-
-    mm << "MAX E: " << std::setw(8) << (int)map_e_max
-    << "   MIN E: " << std::setw(8) << (int)map_e_min;
-    body_lines.push_back(mm.str());
-
-    mm.str(""); mm.clear();
-    mm << "MAX N: " << std::setw(8) << (int)map_n_max
-    << "   MIN N: " << std::setw(8) << (int)map_n_min;
-    body_lines.push_back(mm.str());
-
-    mm.str(""); mm.clear();
-    mm << "GZ: " << std::setw(5) << (int)map_gz
-    << "   SPHER: " << map_spher;
-    body_lines.push_back(mm.str());
-
-    body_lines.push_back("");
-
-    // ==============================
-    // AMMO FILE
-    // ==============================
-    body_lines.push_back("AMMO FILE");
-    body_lines.push_back(makeSeparator());
-
-    std::stringstream af;
-    af << "ART: " << artillery_type
-    << "  PROJ: " << ammo_proj_prop
-    << "  LOT: " << ammo_proj_lot;
-
-    body_lines.push_back(af.str());
-    body_lines.push_back("");
-
-    // ==============================
-    // COB / FIRE DATA
-    // ==============================
-    body_lines.push_back("FIRE DATA");
-    body_lines.push_back(makeSeparator());
-
-    std::stringstream fd;
-    fd << "GB E: " << (int)gb_e
-    << "  GB N: " << (int)gb_n
-    << "  ALT: " << (int)gb_alt;
-    body_lines.push_back(fd.str());
-
-    fd.str(""); fd.clear();
-    fd << "AZ LAY: " << (int)az_lay
-    << "  REF DEF: " << def_base;
-    body_lines.push_back(fd.str());
-
-    fd.str(""); fd.clear();
-    fd << "BASE PIECE: " << (base_piece_index + 1);
-    body_lines.push_back(fd.str());
-
-    body_lines.push_back("");
-
-    // ==============================
-    // OBSERVER
-    // ==============================
-    body_lines.push_back("OBSERVER");
-    body_lines.push_back(makeSeparator());
-
-    if(observers.empty())
-    {
-        std::stringstream obs_ss;
-        obs_ss << "OBS: " << (int)BasicEngine::obs_id
-            << "  E: " << (int)obs_e
-            << "  N: " << (int)obs_n
-            << "  ALT: " << (int)obs_alt
-            << "  GZ: " << (int)BasicEngine::obs_gz;
-
-        body_lines.push_back(obs_ss.str());
-    }
-    else
-    {
-        for(const auto& item : observers)
-        {
-            const ObserverData& obs = item.second;
-
-            std::stringstream obs_ss;
-            obs_ss << "OBS: " << obs.id
-                << "  E: " << (int)obs.e
-                << "  N: " << (int)obs.n
-                << "  ALT: " << (int)obs.alt
-                << "  GZ: " << (int)obs.gz;
-
-            body_lines.push_back(obs_ss.str());
-        }
-    }
-
-    body_lines.push_back("");
-
-    // ==============================
-    // TARGET
-    // ==============================
-    body_lines.push_back("TARGET DATA");
-    body_lines.push_back(makeSeparator());
-
-    body_lines.push_back("ALT: " + tgt_alt + "     N: " + tgt_n + "     E: " + tgt_e);
-    body_lines.push_back("");
-
-    // ==============================
-    // INPUTS FM (LOG REAL)
-    // ==============================
-    body_lines.push_back("MAIN DATA");
-    body_lines.push_back("------------------------------------------------------------");
-
-    for(const auto& line : main_inputs)
-    {
-        body_lines.push_back(line);
-    }
-
-    body_lines.push_back("");
-    body_lines.push_back("FM INPUT LOG");
-    body_lines.push_back(makeSeparator());
-
-    for(const auto& shot : mission_log)
-    {
-        if(!shot.inputs.empty())
-        {
-            std::stringstream ss(shot.inputs);
-            std::string line;
-
-            while(std::getline(ss, line))
-            {
-                if(!line.empty())
-                    body_lines.push_back(line);
-            }
-        }
-    }
-
-    body_lines.push_back("");
-
-    // ======================================
-    // 🔥 RESULTADO FINAL (SOLO PIEZA BASE)
-    // ======================================
-
-std::string final_fire;
-
-
-// ==============================
-// 🔥 INPUTS DEL ÚLTIMO DISPARO
-// ==============================
-if(!mission_log.empty())
-{
-    for(const auto& shot : mission_log)
-    {
-        body_lines.push_back("FM INPUT");
-        body_lines.push_back(makeSeparator());
-
-        std::stringstream ss_in(shot.inputs);
-        std::string line;
-
-        while(std::getline(ss_in, line))
-        {
-            line = trim(line);
-            if(!line.empty())
-                body_lines.push_back(line);
-        }
-
-        body_lines.push_back("");
-
-        // 🔥 también meter su fire aquí si quieres histórico
-    }
-}
-
-// ==============================
-// 🔥 RESULTADO PIEZA BASE
-// ==============================
-if(!mission_log.empty())
-{
-    final_fire = mission_log.back().fire;
-
-    std::stringstream ss(final_fire);
-    std::string line;
-
-    bool capture = false;
-
-    while(std::getline(ss, line))
-    {
-        line = trim(line);
-
-        if(line.find("----- PIECE") != std::string::npos)
-        {
-            int piece_num = -1;
-            sscanf(line.c_str(), "----- PIECE %d -----", &piece_num);
-
-            if(piece_num == base_piece_index + 1)
-            {
-                capture = true;
-                body_lines.push_back(line);
-            }
-            else
-            {
-                capture = false;
-            }
-
-            continue;
-        }
-
-        if(capture && !line.empty())
-        {
-            body_lines.push_back(line);
-        }
-    }
-}
-else
-{
-    body_lines.push_back("NO FIRE DATA AVAILABLE");
-}
-
-    body_lines.push_back(makeSeparator());
-    body_lines.push_back("MISSION CLOSED");
-    body_lines.push_back(makeSeparator());
-
-    // ==============================
-    // PAGINADO
-    // ==============================
-    std::vector<std::string> pages;
-    std::stringstream page_stream;
-
-    const int margin_top = 760;
-    const int margin_bottom = 50;
-    const int line_height = 12;
-
-    int page_number = 1;
-    int y = 650;
-
-    auto writeHeader = [&](std::stringstream& p, int pageNo)
-    {
-        // ============================
-        // FUERZAS ARMADAS DE HONDURAS
-        // ============================
-
-        p << "BT\n/F1 12 Tf\n120 770 Td\n(FUERZAS ARMADAS DE HONDURAS) Tj\nET\n";
-
-        // Línea superior
-        p << "BT\n/F1 10 Tf\n50 758 Td\n(============================================================) Tj\nET\n";
-
-        // ============================
-        // BANDERA (ESTRELLAS)
-        // ============================
-
-        p << "BT\n/F1 10 Tf\n50 745 Td\n(~~~~~~~~~~~~~~~~~~~~~~   *       *   ~~~~~~~~~~~~~~~~~~~~~~) Tj\nET\n";
-        p << "BT\n/F1 10 Tf\n50 732 Td\n(~~~~~~~~~~~~~~~~~~~~~~       *       ~~~~~~~~~~~~~~~~~~~~~~) Tj\nET\n";
-        p << "BT\n/F1 10 Tf\n50 719 Td\n(~~~~~~~~~~~~~~~~~~~~~~   *       *   ~~~~~~~~~~~~~~~~~~~~~~) Tj\nET\n";
-
-        // Línea media
-        p << "BT\n/F1 10 Tf\n50 706 Td\n(============================================================) Tj\nET\n";
-
-        // ARTILLERIA
-        p << "BT\n/F1 12 Tf\n170 692 Td\n(ARTILLERIA AD GLORIUM) Tj\nET\n";
-
-        // Línea inferior
-        p << "BT\n/F1 10 Tf\n50 678 Td\n(============================================================) Tj\nET\n";
-
-        // ============================
-        // TITULO
-        // ============================
-
-        std::stringstream mission_ss;
-        mission_ss << "REPORTE DE MISION #"
-                << std::setw(2) << std::setfill('0') << mission_counter;
-
-        p << "BT\n/F1 11 Tf\n140 660 Td\n(" << escapePDF(mission_ss.str()) << ") Tj\nET\n";
-
-        // ============================
-        // PAGINA
-        // ============================
-
-        std::stringstream page_ss;
-        page_ss << "PAGE " << pageNo;
-
-        p << "BT\n/F1 10 Tf\n450 660 Td\n(" << escapePDF(page_ss.str()) << ") Tj\nET\n";
-    };
-
-    writeHeader(page_stream, page_number);
-
-    for(size_t i = 0; i < body_lines.size(); i++)
-    {
-        if(y < margin_bottom)
-        {
-            pages.push_back(page_stream.str());
-            page_stream.str("");
-            page_stream.clear();
-
-            page_number++;
-            writeHeader(page_stream, page_number);
-            y = 660;
-        }
-
-        page_stream << "BT\n";
-        page_stream << "/F1 9 Tf\n";
-        page_stream << "50 " << y << " Td\n";
-        page_stream << "(" << escapePDF(body_lines[i]) << ") Tj\n";
-        page_stream << "ET\n";
-
-        y -= line_height;
-    }
-
-    if(!page_stream.str().empty())
-        pages.push_back(page_stream.str());
-
-    // ==============================
-    // ESCRIBIR PDF
-    // ==============================
-    std::stringstream filename;
-    filename << "Reporte_Mision_"
-            << std::setw(2) << std::setfill('0') << mission_counter
-            << ".pdf";
-    std::cout << "GUARDANDO EN: " << filename.str() << std::endl;
-    
-    std::ofstream pdf(filename.str(), std::ios::binary);
-    
-    if(!pdf.is_open())
-    {
-        std::cout << "ERROR: NO SE PUDO CREAR PDF\n";
-        return;
-    }
-
-    pdf << "%PDF-1.4\n";
-
-    const int page_count = static_cast<int>(pages.size());
-    const int font_obj = 3 + (page_count * 2);
-
-    std::vector<long> offsets(font_obj + 1, 0);
-
-    // 1 Catalog
-    offsets[1] = static_cast<long>(pdf.tellp());
-    pdf << "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n";
-
-    // 2 Pages
-    offsets[2] = static_cast<long>(pdf.tellp());
-    pdf << "2 0 obj\n<< /Type /Pages /Kids [";
-    for(int i = 0; i < page_count; i++)
-    {
-        int page_obj = 3 + (i * 2);
-        pdf << page_obj << " 0 R ";
-    }
-    pdf << "] /Count " << page_count << " >>\nendobj\n";
-
-    // Pages + Contents
-    for(int i = 0; i < page_count; i++)
-    {
-        int page_obj = 3 + (i * 2);
-        int content_obj = page_obj + 1;
-
-        offsets[page_obj] = static_cast<long>(pdf.tellp());
-        pdf << page_obj << " 0 obj\n";
-        pdf << "<< /Type /Page /Parent 2 0 R\n";
-        pdf << "/MediaBox [0 0 612 792]\n";
-        pdf << "/Contents " << content_obj << " 0 R\n";
-        pdf << "/Resources << /Font << /F1 " << font_obj << " 0 R >> >> >>\n";
-        pdf << "endobj\n";
-
-        offsets[content_obj] = static_cast<long>(pdf.tellp());
-        pdf << content_obj << " 0 obj\n";
-        pdf << "<< /Length " << pages[i].size() << " >>\n";
-        pdf << "stream\n";
-        pdf << pages[i];
-        pdf << "endstream\n";
-        pdf << "endobj\n";
-    }
-
-    // Font
-    offsets[font_obj] = static_cast<long>(pdf.tellp());
-    pdf << font_obj << " 0 obj\n";
-    pdf << "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\n";
-    pdf << "endobj\n";
-
-    long xref_pos = static_cast<long>(pdf.tellp());
-
-    pdf << "xref\n0 " << (font_obj + 1) << "\n";
-    pdf << "0000000000 65535 f \n";
-    for(int i = 1; i <= font_obj; i++)
-    {
-        pdf << std::setw(10) << std::setfill('0') << offsets[i]
-            << " 00000 n \n";
-    }
-
-    pdf << "trailer\n<< /Size " << (font_obj + 1) << " /Root 1 0 R >>\n";
-    pdf << "startxref\n" << xref_pos << "\n%%EOF";
-
-    pdf.close();
-}
 
 
 //////////////////////////////////////////////////
@@ -1010,7 +321,7 @@ std::string drPrefix(const std::string& menu,const std::string& text)
 //////////////////////////////////////////////////
 
 static bool mission_active = false;
-// 🔥 CAMBIO DE CARGA DOCTRINAL
+//  CAMBIO DE CARGA DOCTRINAL
 static bool manual_chg_enabled = false;
 static std::string manual_chg_value = "";
 static bool chg_allowed = false;
@@ -1124,7 +435,7 @@ static double shift_prev_ud = 0.0;
 
 static std::string shift_new_dir = "N";
 static double shift_angle = 0.0;
-// 🔥 REG MEMORY (FM2)
+//  REG MEMORY (FM2)
 static bool reg_data_available = false;
 
 static int last_knpt = 0;
@@ -1155,7 +466,7 @@ static bool interp(const std::vector<Row>& t,double d,double& qe,double& tof,dou
 
             double f = (d - a.d) / (b.d - a.d);
 
-            // 🔥 INTERPOLACIÓN CUADRÁTICA (3 puntos) - Manual HP-71B
+            //  INTERPOLACIÓN CUADRÁTICA (3 puntos) - Manual HP-71B
             // Cuando hay 3 puntos disponibles, usar interpolación cuadrática
             // Fórmula: y = y0 + f*(y1-y0) + f*(f-1)/2 * (y0 - 2*y1 + y2)
             if(i + 1 < t.size())
@@ -1202,7 +513,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         const AmmoKey& key = it->first;
         const std::vector<Row>& table = it->second;
 
-        // 🔥 FILTRO POR ARTILLERY
+        //  FILTRO POR ARTILLERY
         if(normStr(key.artillery) != normStr(artillery_type))
             continue;
 
@@ -1215,7 +526,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         bool proj_match_direct = (key_proj == norm_proj);
         bool proj_match_combined = has_lot && (key_proj == proj_combined);
 
-        // 🔥 FALLBACK: Suffix match when proj is short (e.g. "A" matches "HEA").
+        //  FALLBACK: Suffix match when proj is short (e.g. "A" matches "HEA").
         //    This handles the COB AMMO flow where user enters I→A→LOT,
         //    storing proj="A" but CSV key is "HEA".
         bool proj_match_suffix = false;
@@ -1228,7 +539,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
             }
         }
 
-        // 🔥 If LOT is provided, try combined match (e.g. HE+A=HEA).
+        //  If LOT is provided, try combined match (e.g. HE+A=HEA).
         //    Also try direct match if combined fails (e.g. HEA already includes lot).
         //    Also try suffix match for COB flow (e.g. "A" matches "HEA").
         if(has_lot)
@@ -1247,7 +558,7 @@ static bool solveAuto(const std::string& proj,const std::string& lot,double dist
         if(!interp(table, dist, q, t, d))
             continue;
 
-        // 🔥 VALIDACIÓN DE SOLUCIÓN
+        //  VALIDACIÓN DE SOLUCIÓN
         // Verificar que los valores son razonables antes de aceptar
         if(q <= 0 || t <= 0)
         {
@@ -1323,7 +634,7 @@ static bool solveByCharge(const std::string& proj,const std::string& lot,double 
         bool match_direct2 = (key_proj2 == norm_proj2);
         bool match_combined2 = has_lot2 && (key_proj2 == proj_combined2);
 
-        // 🔥 FALLBACK: Suffix match (same as solveAuto)
+        //  FALLBACK: Suffix match (same as solveAuto)
         bool match_suffix2 = false;
         if(!match_direct2 && !match_combined2)
         {
@@ -1363,7 +674,7 @@ static bool solveByCharge(const std::string& proj,const std::string& lot,double 
 }
 
 
-// 🔥 Compatibilidad con el resto del sistema
+//  Compatibilidad con el resto del sistema
 static bool solve(const std::string& proj,const std::string& lot,double dist,std::string& chg,double& qe,double& tof,double& drift)
 {
     if(manual_chg_enabled)
@@ -1447,7 +758,7 @@ static void hp71bCalibrate(int art_type, const std::string& proj, const std::str
     // Also handle case where proj already includes lot (e.g., "HEA"+"A" → use "HEA")
     if(proj_combined != "HEA" && proj == "HEA")
         proj_combined = "HEA";
-    // 🔥 FALLBACK: If proj is short (e.g. "A" from COB flow), check suffix of known types
+    //  FALLBACK: If proj is short (e.g. "A" from COB flow), check suffix of known types
     //    "A" → ends with "A" → "HEA"
     if(proj_combined != "HEA" && proj_combined != "HE")
     {
@@ -2231,7 +1542,7 @@ std::string BasicEngine::execute(const std::string& input)
 {
     std::string cmd = input;
 
-    // 🔥 BOOT SEQUENCE (SANTA BARBARA)
+    //  BOOT SEQUENCE (SANTA BARBARA)
     if(boot_mode)
     {
         std::string v = normStr(cmd);
@@ -2271,7 +1582,7 @@ std::string BasicEngine::execute(const std::string& input)
         return "DR EVIL\nMAIN (? 1 3 4 5 7 X *)";
     }
 
-    // 🔽 aquí sigue TODO tu sistema normal (NO TOCAR)
+    //  aquí sigue TODO tu sistema normal (NO TOCAR)
 
     auto renderFire = [&](bool useFFE)->std::string
 {
@@ -2282,7 +1593,7 @@ std::string BasicEngine::execute(const std::string& input)
     double base_alt = guns[base_piece_index].alt;
 
 // ===============================
-// 🔥 SHIFT VECTORIAL REAL (TARGET AJUSTADO)
+//  SHIFT VECTORIAL REAL (TARGET AJUSTADO)
 // ===============================
     double adj_tgt_e = tgt_e;
     double adj_tgt_n = tgt_n;
@@ -2317,7 +1628,7 @@ std::string BasicEngine::execute(const std::string& input)
         if(az < 0) az += 2*PI;
 
         double mils_raw = az * (6400 / (2 * PI));
-        // 🔥 CUANTIZACIÓN A 2 MILS (MIRAS ESTÁNDAR)
+        //  CUANTIZACIÓN A 2 MILS (MIRAS ESTÁNDAR)
         double mils = std::floor((mils_raw + 1.5) / 2.0) * 2.0;
 
         std::string chg = "";
@@ -2325,16 +1636,16 @@ std::string BasicEngine::execute(const std::string& input)
 
         double dist = dist_geom + reg_dist;
 
-        // 🔥 PRIMERO resolver balística
+        //  PRIMERO resolver balística
         bool solved = solve(ammo_proj_prop, ammo_proj_lot, dist, chg, qe, tof, drift);
 
-        // ✅ CALIBRAR QE/TOF AL HP-71B FÍSICO
+        //  CALIBRAR QE/TOF AL HP-71B FÍSICO
         // La FT Excel del US Army difiere ~98 mils de la realidad.
         // hp71bCalibrate() aplica la fórmula del equipo militar real.
         hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg, dist, qe, tof);
         
         // ================================
-        // 🔥 DRIFT: USAR DATOS FT REALES
+        //  DRIFT: USAR DATOS FT REALES
         // ================================
         // El drift del CSV ya viene de las tablas de tiro reales
         // Solo usar fórmula sintética si el drift es extremadamente bajo
@@ -2349,7 +1660,7 @@ std::string BasicEngine::execute(const std::string& input)
                 drift = 0.0001 * dist;
         }
 
-        // 🔥 AHORA sí calcular DEF correctamente
+        //  AHORA sí calcular DEF correctamente
 
         bool use_fm1_reverse = fm1_base_def_reverse || active_fm1_def_reverse;
 
@@ -2364,11 +1675,11 @@ std::string BasicEngine::execute(const std::string& input)
             def += reg_def + df_corr;
 
         // ================================
-        // 🔥 MÓDULO DEF FÍSICO MEJORADO
+        //  MÓDULO DEF FÍSICO MEJORADO
         // ================================
 
         // ================================
-        // 🔥 DEFLEXIÓN ACUMULADA 
+        //  DEFLEXIÓN ACUMULADA 
         // ================================
 
         double drift_accum = drift;  // drift del FT ya es el total de la trayectoria
@@ -2391,7 +1702,7 @@ std::string BasicEngine::execute(const std::string& input)
             qe_final += (ud_corr*0.05);
 
 // ===============================
-// 🔥 APLICAR OPEN (FALTABA)
+//  APLICAR OPEN (FALTABA)
 // ===============================
         if(sheaf_mode == "OPEN" && guns.size() > 1)
         {
@@ -2407,10 +1718,10 @@ std::string BasicEngine::execute(const std::string& input)
 
         def += drift_accum;
         def += jump_h;
-        // 🔥 REDONDEO HP71
+        //  REDONDEO HP71
         def = std::round(def);
 
-        // 🔥 normalizar AL FINAL
+        //  normalizar AL FINAL
         while(def < 0) def += 6400;
         while(def >= 6400) def -= 6400;
 
@@ -2446,7 +1757,7 @@ std::string BasicEngine::execute(const std::string& input)
         out<<"AZ "<<std::round(mils)<<"\n";
         std::string def_output;
 
-        // 🔥 NORMALIZAR DESPUÉS DEL AJUSTE FINAL
+        //  NORMALIZAR DESPUÉS DEL AJUSTE FINAL
         while(def < 0) def += 6400;
         while(def >= 6400) def -= 6400;
 
@@ -2470,7 +1781,7 @@ std::string BasicEngine::execute(const std::string& input)
             out<<"FUZE PDA\n\n";
         }
     }
-        // 🔥 GUARDAR ÚLTIMA SOLUCIÓN BASE (PARA REG)
+        //  GUARDAR ÚLTIMA SOLUCIÓN BASE (PARA REG)
 
         // usar la PIEZA BASE (correcto doctrinalmente)
         int i = base_piece_index;
@@ -2494,7 +1805,7 @@ std::string BasicEngine::execute(const std::string& input)
 
         bool solved_ref = solve(ammo_proj_prop, ammo_proj_lot, dist, chg_tmp, qe_tmp, tof_tmp, drift_tmp);
 
-        // ✅ CALIBRAR QE/TOF AL HP-71B FÍSICO (misma calibración que la ruta principal)
+        //  CALIBRAR QE/TOF AL HP-71B FÍSICO (misma calibración que la ruta principal)
         if(solved_ref)
             hp71bCalibrate(std::stoi(artillery_type), ammo_proj_prop, ammo_proj_lot, chg_tmp, dist, qe_tmp, tof_tmp);
 
@@ -2778,187 +2089,6 @@ if(v == "E")
 
     out << "\nMISSION CLOSED\n";
 
-//////////////////////////////////////////////////
-// 🔥 GUARDAR REPORTE EN ARCHIVO
-//////////////////////////////////////////////////
-
-    std::vector<std::string> pdf_lines;
-
-    pdf_lines.push_back("====================");
-    pdf_lines.push_back("    ARTILLERIA");
-    pdf_lines.push_back("    AD GLORIAM");
-    pdf_lines.push_back("====================");
-    pdf_lines.push_back("");
-    pdf_lines.push_back("REPORTE DE MISION");
-
-    if(!mission_log.empty())
-    {
-        const auto& shot = mission_log.back(); // SOLO EL ÚLTIMO
-
-        std::stringstream ss(shot.fire);
-        std::string line;
-
-        bool capture = false;
-
-        while(std::getline(ss, line))
-        {
-            if(line.find("----- PIECE") != std::string::npos)
-            {
-                int piece_num = -1;
-
-                std::stringstream ss(line);
-                std::string tmp;
-
-                ss >> tmp >> tmp >> piece_num;
-
-                if(piece_num == base_piece_index + 1)
-                {
-                    capture = true;
-                    pdf_lines.push_back(line);
-                }
-                else
-                {
-                    capture = false;
-                }
-
-                continue;
-            }
-
-            std::string clean = normStr(line);
-
-            if(capture && !clean.empty())
-                pdf_lines.push_back(clean);
-        }
-    }
-
-    if(!mission_log.empty())
-    {
-        pdf_lines.push_back("FECHA: " + mission_log.front().timestamp);
-        pdf_lines.push_back("");
-    }
-
-    pdf_lines.push_back("TARGET DATA");
-
-    std::stringstream ss_alt, ss_n, ss_e;
-    ss_alt << (int)tgt_alt;
-    ss_n << (int)tgt_n;
-    ss_e << (int)tgt_e;
-
-    pdf_lines.push_back("ALT " + ss_alt.str());
-    pdf_lines.push_back("N " + ss_n.str());
-    pdf_lines.push_back("E " + ss_e.str());
-    pdf_lines.push_back("");
-
-// ==============================
-// 🔥 AGRUPACIÓN DOCTRINAL POR FM
-// ==============================
-
-std::vector<ShotLog> fm1;
-std::vector<ShotLog> fm2_reg;
-std::vector<ShotLog> fm2_time;
-std::vector<ShotLog> fm3;
-std::vector<ShotLog> fm4;
-
-for(const auto& shot : mission_log)
-{
-    if(shot.label == "BASE FIRE")
-        fm1.push_back(shot);
-
-    else if(shot.label == "REGISTRATION")
-        fm2_reg.push_back(shot);
-
-    else if(shot.label == "TIME REG")
-        fm2_time.push_back(shot);
-
-    else if(shot.label == "SHIFT (FM3)")
-        fm3.push_back(shot);
-
-    else if(shot.label == "PMI (FM4)")
-        fm4.push_back(shot);
-}
-
-// ==============================
-// 🔥 FUNCIÓN PARA IMPRIMIR BLOQUES
-// ==============================
-
-auto printFMBlock = [&](const std::string& title, const std::vector<ShotLog>& logs)
-
-{
-    if(logs.empty()) return;
-
-    pdf_lines.push_back("------------------------------------------------------------");
-    pdf_lines.push_back(title);
-    pdf_lines.push_back("------------------------------------------------------------");
-    pdf_lines.push_back("");
-
-    for(const auto& shot : logs)
-    {
-        // INPUTS
-        if(!shot.inputs.empty())
-        {
-            pdf_lines.push_back("INPUTS:");
-
-            std::stringstream ss_in(shot.inputs);
-            std::string line;
-
-            while(std::getline(ss_in, line))
-            {
-                if(!line.empty())
-                    pdf_lines.push_back(line);
-            }
-
-            pdf_lines.push_back("");
-        }
-
-        // FIRE RESULT
-        std::stringstream ss_fire(shot.fire);
-        std::string line;
-
-        while(std::getline(ss_fire, line))
-            pdf_lines.push_back(line);
-
-        pdf_lines.push_back("");
-    }
-};
-
-// ==============================
-// 🔥 IMPRIMIR POR FASE
-// ==============================
-
-if(!fm1.empty())
-{
-
-    // printFMBlock("FM1 - BASE FIRE", fm1);
-}
-
-if(!fm2_reg.empty())
-{
-
-    // printFMBlock("FM2 - REGISTRATION", fm2_reg);
-}
-
-if(!fm2_time.empty())
-{
-
-   // printFMBlock("FM2 - TIME REG", fm2_time);
-}
-
-if(!fm3.empty())
-{
-
-   // printFMBlock("FM3 - SHIFT", fm3);
-}
-
-if(!fm4.empty())
-{
-
-   // printFMBlock("FM4 - PMI", fm4);
-}
-    pdf_lines.push_back("");
-    pdf_lines.push_back("MISSION CLOSED");
-
-    saveReportPDF(pdf_lines, mission_counter);
-
     mission_counter++;
 
     mission_active=false;
@@ -3046,7 +2176,7 @@ case MENU_TARGET:
 {
     static int temp_knpt = 0;
 
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0)
@@ -3137,7 +2267,7 @@ case MENU_TARGET:
         if(!v.empty())
             tgt_alt = std::stod(v);
 
-        // 🔥 GUARDAR EN MAPA
+        //  GUARDAR EN MAPA
         targets[temp_knpt] = {tgt_e, tgt_n, tgt_alt};
         current_knpt = temp_knpt;
 
@@ -3385,7 +2515,6 @@ case MENU_TARGET:
         if(!v.empty())
             def_base = std::stoi(v);
 
-        // 🔥 AQUÍ GUARDAS TODO PARA EL PDF
         main_inputs.push_back("COB");
         main_inputs.push_back("GB E " + std::to_string((int)gb_e));
         main_inputs.push_back("GB N " + std::to_string((int)gb_n));
@@ -3500,7 +2629,7 @@ case MENU_TARGET:
 
         cob_current_index++;
 
-        // 🔥 RESET TEMPORALES PARA NUEVA PIEZA
+        //  RESET TEMPORALES PARA NUEVA PIEZA
         temp_dir = 0;
         temp_dist = 0;
         temp_iv = 0;
@@ -3699,7 +2828,7 @@ case MENU_OBS:
 
 case MENU_MAP_MODEL:
 {
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -3717,7 +2846,7 @@ case MENU_MAP_MODEL:
 
     std::string v = normStr(cmd);
 
-    // 🔥 SI HAY VALOR → GUARDAR
+    //  SI HAY VALOR → GUARDAR
     if(!v.empty())
     {
         switch(input_stage)
@@ -3732,7 +2861,7 @@ case MENU_MAP_MODEL:
         }
     }
 
-    // 🔥 SIEMPRE AVANZAR (ENTER o valor)
+    //  SIEMPRE AVANZAR (ENTER o valor)
     input_stage++;
 
     switch(input_stage)
@@ -3752,7 +2881,7 @@ case MENU_MAP_MODEL:
             main_inputs.push_back("GZ " + std::to_string((int)map_gz));
             main_inputs.push_back("SPHER " + map_spher);
 
-            // 🔥 AUTO-DETECT LOCATION FROM MAP CENTER
+            //  AUTO-DETECT LOCATION FROM MAP CENTER
             double center_e = (map_e_max + map_e_min) / 2.0;
             double center_n = (map_n_max + map_n_min) / 2.0;
             
@@ -3764,7 +2893,7 @@ case MENU_MAP_MODEL:
                 double wind_dir, wind_spd; // viento promedio
             };
             
-            // ⚠️ ACTUALIZAR con coordenadas reales del MAP MODEL cuando se confirmen
+            //  ACTUALIZAR con coordenadas reales del MAP MODEL cuando se confirmen
             ZoneAtm zones[] = {
                 {"ZAMBRANO",   456854, 1577256, 32.0, 80.0,   0, 3.4},
                 {"PINALEJO",   383483, 1649393, 25.0, 85.0,   0, 3.0},
@@ -3841,7 +2970,7 @@ case MENU_MAP_MODEL:
 
 case MENU_FM:
     {
-        // 🔥 VOLVER A CARGA AUTOMATICA
+        //  VOLVER A CARGA AUTOMATICA
         
         if(cmd=="AUTOCHG")
         {
@@ -3851,7 +2980,7 @@ case MENU_FM:
             return "AUTO CHARGE ENABLED\nFM (? 1 2 3 4 S P X *)";
         }
 
-        // 🔥 STANAG CONFIG: CD0=value
+        //  STANAG CONFIG: CD0=value
         if(cmd.size() > 4 && cmd.substr(0, 4) == "CD0=")
         {
             try {
@@ -3874,7 +3003,7 @@ case MENU_FM:
             }
         }
 
-        // 🔥 STANAG CONFIG: V0_CHG=value (e.g. V0_6W=500)
+        //  STANAG CONFIG: V0_CHG=value (e.g. V0_6W=500)
         if(cmd.size() > 3 && cmd.substr(0, 3) == "V0_")
         {
             size_t eq = cmd.find('=');
@@ -3895,7 +3024,7 @@ case MENU_FM:
             }
         }
 
-        // 🔥 STANAG CONFIG: TEMP=temperature_in_Celsius
+        //  STANAG CONFIG: TEMP=temperature_in_Celsius
         if(cmd.size() > 5 && cmd.substr(0, 5) == "TEMP=")
         {
             try {
@@ -3912,7 +3041,7 @@ case MENU_FM:
             }
         }
 
-        // 🔥 STANAG CONFIG: HUM=humidity_percent
+        //  STANAG CONFIG: HUM=humidity_percent
         if(cmd.size() > 4 && cmd.substr(0, 4) == "HUM=")
         {
             try {
@@ -3929,7 +3058,7 @@ case MENU_FM:
             }
         }
 
-        // 🔥 STANAG CONFIG: WIND_DIR=direction (degrees FROM, 0=N, 90=E)
+        //  STANAG CONFIG: WIND_DIR=direction (degrees FROM, 0=N, 90=E)
         if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_DIR=")
         {
             try {
@@ -3946,7 +3075,7 @@ case MENU_FM:
             }
         }
 
-        // 🔥 STANAG CONFIG: WIND_SPD=speed (m/s)
+        //  STANAG CONFIG: WIND_SPD=speed (m/s)
         if(cmd.size() > 9 && cmd.substr(0, 9) == "WIND_SPD=")
         {
             try {
@@ -3963,7 +3092,7 @@ case MENU_FM:
             }
         }
 
-        // 🔥 STANAG CONFIG: FIRING_AZ=azimuth (degrees, 0=N, 90=E)
+        //  STANAG CONFIG: FIRING_AZ=azimuth (degrees, 0=N, 90=E)
         if(cmd.size() > 10 && cmd.substr(0, 10) == "FIRING_AZ=")
         {
             try {
@@ -3980,7 +3109,7 @@ case MENU_FM:
             }
         }
 
-        // 🔥 STANAG CONFIG: SHOW (show current config)
+        //  STANAG CONFIG: SHOW (show current config)
         if(cmd == "SHOW")
         {
             std::stringstream ss;
@@ -4002,7 +3131,7 @@ case MENU_FM:
             return ss.str();
         }
 
-        // 🔥 STANAG 4355 COMPARISON
+        //  STANAG 4355 COMPARISON
         if(cmd=="STANAG")
         {
             if(ammo_proj_prop.empty() || guns.empty() || (tgt_e == 0 && tgt_n == 0))
@@ -4026,7 +3155,7 @@ case MENU_FM:
                                  chg_resolved, dist_calc) + "\nFM (? 1 2 3 4 S P X *)";
         }
 
-        // 🔥 STANAG CALIBRATION (tests cd0 vs FT data)
+        //  STANAG CALIBRATION (tests cd0 vs FT data)
         if(cmd=="STANAG_CAL")
         {
             return stanagCalibrate() + "\nFM (? 1 2 3 4 S P X *)";
@@ -4059,13 +3188,13 @@ case MENU_FM:
             return "KNPT #:";
         }
 
-        if(cmd=="3")    // 🔥 FM3 DOCTRINAL
+        if(cmd=="3")    //  FM3 DOCTRINAL
         {
             current_menu = MENU_SHIFT_PREV_DIR;
             return "PREV DIR:";
         }
 
-        if(cmd=="4")   // 🔥 FM4 E.A. Y P.M.I.
+        if(cmd=="4")   //  FM4 E.A. Y P.M.I.
         {
             current_menu = MENU_FM4_LR;
             return "IMPACT L/R (ej: L50 o R50):";
@@ -4133,7 +3262,7 @@ case MENU_FM:
             return out.str() + "FM (? 1 2 3 4 R E P X *)";
         }
 
-        // 🔥 DOCTRINAL: A = TODAS LAS PIEZAS (FFE)
+        //  DOCTRINAL: A = TODAS LAS PIEZAS (FFE)
         if(cmd=="A")
         {
             all_guns_command = true;
@@ -4151,7 +3280,7 @@ case MENU_FM:
 
        if(cmd=="X")
         {
-            // 🔥 VALIDACIÓN DOCTRINAL PRO
+            //  VALIDACIÓN DOCTRINAL PRO
 
             bool has_cob = !guns.empty();
             bool has_target = !(tgt_e == 0 && tgt_n == 0);
@@ -4202,13 +3331,13 @@ case MENU_FM:
             std::stringstream input_ss;
 
 
-            // 🔥 2. INPUTS DEL DISPARO
+            //  2. INPUTS DEL DISPARO
             for(const auto& s : last_inputs)
                 input_ss << s << "\n";
 
             shot.inputs = input_ss.str();
 
-            // 🔥 LIMPIAR SOLO inputs del disparo
+            //  LIMPIAR SOLO inputs del disparo
             last_inputs.clear();
 
 
@@ -4277,7 +3406,7 @@ case MENU_FM:
 
 case MENU_FM1_GRID:
 {
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -4392,7 +3521,7 @@ case MENU_FM1_GRID:
 
 case MENU_FM1_TRANSPORT:
 {
-    // 🔙 BACK CON P
+    //  BACK CON P
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -4561,7 +3690,7 @@ case MENU_FM1_TRANSPORT:
 
 case MENU_FM1_POLAR:
 {
-    // 🔙 BACK
+    //  BACK
     if(cmd=="P")
     {
         if(input_stage > 0) input_stage--;
@@ -4754,7 +3883,7 @@ case MENU_FM1_POLAR:
         if(cmd=="N")
         {
             fire_phase = 4;
-            // 🔥 CALCULO PMI
+            //  CALCULO PMI
             double avg_lr=0, avg_ad=0, avg_ud=0;
 
             for(double v:fm4_lr) avg_lr+=v;
@@ -5163,7 +4292,7 @@ case MENU_SHIFT:
         if(cmd=="OPEN")
         {
             sheaf_mode="OPEN";
-            current_menu = MENU_SHEAF_WIDTH; // 🔥 NUEVO PASO
+            current_menu = MENU_SHEAF_WIDTH; //  NUEVO PASO
             return "OPEN WIDTH (MILS):";
         }
 
@@ -5200,7 +4329,7 @@ case MENU_SHIFT:
 
    case MENU_REG:
 {
-        // 🔥 PREGUNTA REUTILIZAR REG
+        //  PREGUNTA REUTILIZAR REG
     if(input_stage == -1)
     {
         if(cmd == "Y")
@@ -5250,7 +4379,7 @@ case MENU_SHIFT:
 
             current_knpt = knpt;
 
-            // 🔥 CARGAR TARGET DESDE MAIN 3
+            //  CARGAR TARGET DESDE MAIN 3
             tgt_e = targets[knpt].e;
             tgt_n = targets[knpt].n;
             tgt_alt = targets[knpt].alt;
@@ -5309,7 +4438,7 @@ case MENU_SHIFT:
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_dist_solution : std::stod(v);
 
-            // 🔥 CORRECCION: 0 significa "sin correccion" (mantener reg_dist=0)
+            //  CORRECCION: 0 significa "sin correccion" (mantener reg_dist=0)
             if(v.empty() || reg_input == 0)
                 reg_dist = 0;
             else
@@ -5339,14 +4468,14 @@ case MENU_SHIFT:
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_def_solution : std::stod(v);
 
-            // 🔥 GUARDAR VALOR ACTUAL
+            //  GUARDAR VALOR ACTUAL
             double reg_def_backup = reg_def;
 
-            // 🔥 FORZAR SIN REG
+            //  FORZAR SIN REG
             reg_def = 0;
 
             // ===============================
-            // 🔥 USAR MISMO TARGET AJUSTADO QUE renderFire
+            //  USAR MISMO TARGET AJUSTADO QUE renderFire
             // ===============================
             double adj_tgt_e = tgt_e;
             double adj_tgt_n = tgt_n;
@@ -5408,17 +4537,17 @@ case MENU_SHIFT:
             while(def_real < 0) def_real += 6400;
             while(def_real >= 6400) def_real -= 6400;
 
-            // 🔥 RESTAURAR
+            //  RESTAURAR
             reg_def = reg_def_backup;
 
             // ================================
-            // 🔥 CORRECCIÓN REG REAL (CONV)
+            //  CORRECCIÓN REG REAL (CONV)
             // ================================
 
             // detectar si operador no corrigió
             if(std::abs(reg_input - last_def_solution) <= 1)
             {
-                // 🔥 calcular spread entre piezas
+                //  calcular spread entre piezas
                 double max_def = -1e9;
                 double min_def = 1e9;
 
@@ -6295,23 +5424,23 @@ case MENU_DF_CORR:
 
     ss >> dir >> val;
 
-    // 🔥 DISTANCIA BASE
+    //  DISTANCIA BASE
     double base_dist = last_dist_solution;
 
     if(base_dist <= 0)
         return "NO BASE DIST";
 
-    // 🔥 convertir metros → mils
+    //  convertir metros → mils
     double mils = (val / base_dist) * 1000.0;
 
     // ===============================
-    // 🔥 ADD / DROP (CORREGIDO REAL)
+    //  ADD / DROP (CORREGIDO REAL)
     // ===============================
     if(dir=="ADD" || dir=="DROP")
     {
         double new_dist;
 
-    // 🔥 ACUMULACIÓN DOCTRINAL REAL
+    //  ACUMULACIÓN DOCTRINAL REAL
 
     if(dir=="ADD")
     {
@@ -6322,12 +5451,12 @@ case MENU_DF_CORR:
         reg_dist -= val;
     }
 
-    // 🔥 reset QE correction
+    //  reset QE correction
     time_reg_correction = 0;
     }
 
     // ===============================
-    // 🔥 RIGHT / LEFT
+    //  RIGHT / LEFT
     // ===============================
     else if(dir=="RIGHT")
     {
