@@ -1962,9 +1962,9 @@ static std::string stanagCompare(int art_type, const std::string& proj, const st
     // === CORIOLIS EFFECT ===
     // Formula: C = ω_e * T * sin(lat) * cos(az) (simplified for east-west)
     // ω_e = 7.2921e-5 rad/s (Earth rotation)
-    // For Argentina (lat ≈ -32°), this is ~2-5 mils at 10km
+    // For Honduras (lat ≈ 14°N)
     const double omega_e = 7.2921e-5;  // rad/s
-    const double lat_arg = -32.0 * 3.14159265 / 180.0;  // Buenos Aires, radians
+    const double lat_arg = 14.0 * 3.14159265 / 180.0;  // Honduras, radians
     // Coriolis deflection (mils) — depends on azimuth of fire
     // Simplified: assume fire to the east (az=90°), max effect
     double coriolis = omega_e * tof_stanag * std::sin(lat_arg) * dist_m / 100.0;
@@ -2341,13 +2341,12 @@ std::string BasicEngine::execute(const std::string& input)
         // (menos de 0.01 mil, que indica datos no disponibles)
         if(std::abs(drift) < 0.01)
         {
-            // Para 155mm M483A1: drift típico ~0.38 mils/100m
-            // Para 105mm M1: drift típico ~0.1 mils/100m
-            // Usar factor conservador basado en el caliber
+            // Drift sintético solo cuando FT no tiene datos
+            // Factor = drift_real / distancia (HEA 155mm: 5.4 mils / 10467m ≈ 0.000516)
             if(artillery_type == "155")
-                drift = 0.0038 * dist;  // 0.38 mils/100m para 155mm
+                drift = 0.000516 * dist;
             else
-                drift = 0.001 * dist;   // 0.1 mils/100m para 105mm
+                drift = 0.0001 * dist;
         }
 
         // 🔥 AHORA sí calcular DEF correctamente
@@ -2359,10 +2358,7 @@ std::string BasicEngine::execute(const std::string& input)
         // CORRECCION DE SIGNO DEF:
         // La HP fisica usa def_base - (AZ - AZ_LAY).
         // def_base (3200) es el cero del mira (centro de la escala de deflexion).
-        if(use_fm1_reverse)
-            def = def_base - (mils - az_lay);
-        else
-            def = def_base - (mils - az_lay);
+        def = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse)
             def += reg_def + df_corr;
@@ -2514,11 +2510,8 @@ std::string BasicEngine::execute(const std::string& input)
         double def_ref = 0.0;
 
         // Misma convencion de DEF que la HP fisica:
-        // 3200 + REF_DEF - (AZ - AZ_LAY)
-        if(use_fm1_reverse_ref)
-            def_ref = def_base - (mils - az_lay);
-        else
-            def_ref = def_base - (mils - az_lay);
+        // def_base - (AZ - AZ_LAY)
+        def_ref = def_base - (mils - az_lay);
 
         if(!use_fm1_reverse_ref)
             def_ref += reg_def + df_corr;
@@ -5467,7 +5460,7 @@ if(current_menu=="SHIFT")
                 if(def_temp < min_def) min_def = def_temp;
             }
 
-                reg_def = 00;
+                reg_def = 0.0;
             }
             else
             {
