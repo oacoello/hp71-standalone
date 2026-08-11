@@ -3875,7 +3875,10 @@ if(current_menu=="SHIFT")
             std::string v = normStr(cmd);
             double reg_input = v.empty() ? last_dist_solution : std::stod(v);
 
-            reg_dist = reg_input - last_dist_solution;
+            if(v.empty() || reg_input == 0)
+                reg_dist = 0;
+            else
+                reg_dist = reg_input - last_dist_solution;
 
             last_inputs.push_back("REG DIST " + std::to_string((int)reg_input));
 
