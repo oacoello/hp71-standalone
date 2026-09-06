@@ -3,6 +3,7 @@
 
 <head>
 <meta charset="utf-8">
+<link rel="icon" type="image/x-icon" href="icon.ico">
 <title>SANTA BARBARA</title>
 
 <style>
@@ -79,12 +80,38 @@ grid-row:span 2;
 }
 
 button:active{ transform:scale(.95); }
+
+/* Auth screens */
+#auth-overlay{
+    position:fixed; top:0; left:0; width:100vw; height:100vh;
+    background:#0A0A0E; display:flex; justify-content:center; align-items:center;
+    z-index:9999; flex-direction:column; text-align:center; padding:40px;
+}
+#auth-overlay.hidden{ display:none; }
+#auth-overlay h1{ font-size:28px; margin-bottom:16px; }
+#auth-overlay p{ font-size:16px; color:#999; max-width:500px; line-height:1.6; }
+.auth-loading h1{ color:#F39C63; }
+.auth-blocked h1{ color:#E74C3C; }
+.auth-blocked .reason{ color:#E74C3C; font-size:14px; margin-top:12px; }
+.auth-valid h1{ color:#2ECC71; }
+.auth-loading .spinner{
+    width:40px; height:40px; border:4px solid #333; border-top:4px solid #F39C63;
+    border-radius:50%; animation:spin 1s linear infinite; margin:20px auto;
+}
+@keyframes spin{ 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
 </style>
 </head>
 
 <body>
 
-<div class="calculator">
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay" class="auth-loading">
+    <h1>Validando sesion...</h1>
+    <div class="spinner"></div>
+    <p>Consultando Servicios de Usuario Santa Barbara...</p>
+</div>
+
+<div class="calculator" id="calculator" style="display:none">
 
 <div class="lcd">
 <div id="lcdtext">SANTA BARBARA</div>
@@ -107,7 +134,7 @@ button:active{ transform:scale(.95); }
 <button data="V">V</button><button data="B">B</button><button data="N">N</button>
 <button data="M">M</button><button data="(">(</button><button data=")">)</button>
 
-<button class="endline" data="ENTER">ENDLINE</button>
+<button class="endline" data="ENTER">ENDL</button>
 
 <button data="ON">ON</button>
 <button class="yellow" data="F">f</button>
@@ -520,6 +547,65 @@ if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
 
 })
 
+</script>
+
+<!-- AUTH VALIDATION -->
+<script>
+(function(){
+    const overlay = document.getElementById('auth-overlay');
+    const calculator = document.getElementById('calculator');
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('sessionToken');
+    const deviceId = params.get('deviceId') || '';
+    const appCode = params.get('applicationCode') || 'calc';
+
+    function showBlocked(reason){
+        overlay.className = 'auth-blocked';
+        overlay.innerHTML = '<h1>Acceso Bloqueado</h1>' +
+            '<p>Debe abrir la Calculadora desde Servicios de Usuario Santa Barbara</p>' +
+            '<p class="reason">' + reason + '</p>';
+    }
+
+    function showValid(){
+        overlay.className = 'auth-valid';
+        overlay.innerHTML = '<h1>Sesion valida</h1>';
+        setTimeout(function(){
+            overlay.classList.add('hidden');
+            calculator.style.display = '';
+            updateScreen();
+        }, 500);
+    }
+
+    // No token = blocked
+    if(!token){
+        showBlocked('No se recibio token de sesion. Abra el programa desde sb-acceso.');
+        return;
+    }
+
+    // Validate against cdt-auth
+    fetch('http://localhost:3001/auth/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sessionToken: token,
+            deviceId: deviceId,
+            application: appCode,
+            requiredPermissions: ['canUseCalculator']
+        })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        if(data.valid && data.profileId){
+            window._authProfile = data;
+            showValid();
+        } else {
+            showBlocked('Sesion invalida o sin permisos para usar la Calculadora.');
+        }
+    })
+    .catch(function(e){
+        showBlocked('No se pudo conectar con Servicios de Usuario. Error: ' + e.message);
+    });
+})();
 </script>
 
 </body>
