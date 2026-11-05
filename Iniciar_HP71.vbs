@@ -56,7 +56,7 @@ WScript.Sleep 1500
 
 ' ===== BUILD URL WITH TOKEN =====
 Dim appUrl
-appUrl = "http://127.0.0.1:8080"
+appUrl = "http://127.0.0.1:8071"
 
 If sessionToken <> "" Then
     appUrl = appUrl & "?sessionToken=" & sessionToken

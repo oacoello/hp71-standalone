@@ -3,6 +3,7 @@
 
 <head>
 <meta charset="utf-8">
+<link rel="icon" type="image/x-icon" href="icon.ico">
 <title>SANTA BARBARA</title>
 
 <style>
@@ -10,10 +11,15 @@ body{
 background:#1b1b1b;
 font-family:Arial;
 display:flex;
+flex-direction:column;
 justify-content:center;
 align-items:center;
-height:100vh;
+min-height:100vh;
+height:auto;
 margin:0;
+padding:14px 0;
+box-sizing:border-box;
+overflow:auto;
 }
 
 .calculator{
@@ -79,12 +85,277 @@ grid-row:span 2;
 }
 
 button:active{ transform:scale(.95); }
+
+/* ===== VENTANAS: RECORD DE TIRO + HISTORIAL DE INPUTS ===== */
+.toolbar{
+display:flex;
+gap:14px;
+justify-content:center;
+width:100%;
+margin-bottom:16px;
+}
+.toolbtn{
+min-width:300px;
+width:auto;
+padding:11px 34px;
+border-radius:10px;
+border:2px solid #F39C63;
+background:#0A0A0B;
+color:#F39C63;
+font-size:12px;
+font-weight:900;
+letter-spacing:.18em;
+text-transform:uppercase;
+white-space:nowrap;
+text-align:center;
+cursor:pointer;
+box-shadow:0 6px 18px rgba(0,0,0,.5);
+}
+.toolbtn:hover{ background:#F39C63; color:#000; }
+
+.overlay{
+position:fixed;
+inset:0;
+z-index:2147483647;
+display:none;
+align-items:center;
+justify-content:center;
+background:rgba(0,0,0,.85);
+padding:16px;
+}
+.overlay.open{ display:flex; }
+
+/* --- Record de tiro --- */
+.record-window{
+position:relative;
+height:94vh;
+width:98vw;
+max-width:1600px;
+overflow:hidden;
+border-radius:16px;
+border:2px solid #F39C63;
+background:#fff;
+box-shadow:0 25px 60px rgba(0,0,0,.6);
+}
+.record-close{
+position:absolute;
+right:12px;
+top:12px;
+z-index:30;
+border:none;
+border-radius:999px;
+background:rgba(0,0,0,.8);
+color:#fff;
+width:34px;
+height:34px;
+font-size:16px;
+cursor:pointer;
+}
+.record-close:hover{ background:#F39C63; color:#000; }
+.record-save{
+position:absolute;
+right:56px;
+top:12px;
+z-index:30;
+width:auto;
+height:34px;
+padding:0 20px;
+display:inline-flex;
+align-items:center;
+justify-content:center;
+border-radius:999px;
+border:1px solid #F39C63;
+background:rgba(0,0,0,.8);
+color:#F39C63;
+font-size:11px;
+font-weight:900;
+letter-spacing:.12em;
+text-transform:uppercase;
+white-space:nowrap;
+cursor:pointer;
+}
+.record-save:hover{ background:#F39C63; color:#000; }
+.record-save.saved{ border-color:#7CFF9B; color:#7CFF9B; }
+.record-save.saved:hover{ background:#7CFF9B; color:#000; }
+.record-body{
+display:flex;
+align-items:flex-start;
+justify-content:center;
+overflow:auto;
+height:100%;
+background:#fff;
+padding:48px 16px 16px;
+}
+.record-sheet{
+position:relative;
+aspect-ratio:792/612;
+width:min(1500px, calc(100vw - 64px));
+min-width:960px;
+}
+.record-sheet iframe{
+position:absolute;
+inset:0;
+width:100%;
+height:100%;
+border:0;
+}
+.record-values{
+position:absolute;
+inset:0;
+z-index:20;
+pointer-events:none;
+}
+.rv{
+position:absolute;
+transform:translate(-50%,36px);
+overflow:hidden;
+white-space:nowrap;
+text-align:center;
+font-family:monospace;
+font-size:clamp(10px,1.05vw,17px);
+font-weight:900;
+line-height:1;
+color:#2563eb;
+}
+.rv-row{
+position:absolute;
+transform:translate(-50%,36px);
+overflow:hidden;
+white-space:nowrap;
+text-align:center;
+font-family:monospace;
+font-size:clamp(9px,0.95vw,15px);
+font-weight:900;
+line-height:1;
+color:#16a34a;
+}
+
+/* --- Historial de inputs --- */
+.history-window{
+height:88vh;
+width:min(1150px,96vw);
+display:flex;
+flex-direction:column;
+overflow:hidden;
+border-radius:16px;
+border:2px solid #F39C63;
+background:#0A0A0B;
+box-shadow:0 25px 60px rgba(0,0,0,.6);
+}
+.history-bar{
+display:flex;
+align-items:center;
+gap:10px;
+padding:12px 16px;
+border-bottom:1px solid rgba(243,156,99,.35);
+background:#111114;
+}
+.history-title{
+color:#F39C63;
+font-size:12px;
+font-weight:900;
+letter-spacing:.2em;
+text-transform:uppercase;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+min-width:0;
+}
+.history-bar .spacer{ flex:1; }
+.hbtn{
+width:auto;
+padding:8px 20px;
+border-radius:8px;
+border:1px solid #F39C63;
+background:transparent;
+color:#F39C63;
+font-size:10px;
+font-weight:900;
+letter-spacing:.12em;
+text-transform:uppercase;
+white-space:nowrap;
+cursor:pointer;
+}
+.hbtn:hover{ background:#F39C63; color:#000; }
+.history-body{
+display:flex;
+flex:1;
+min-height:0;
+}
+.history-sessions{
+width:300px;
+min-width:220px;
+overflow-y:auto;
+border-right:1px solid rgba(243,156,99,.25);
+padding:8px;
+}
+.hsession{
+padding:9px 10px;
+border-radius:8px;
+cursor:pointer;
+margin-bottom:6px;
+background:#141418;
+border:1px solid transparent;
+}
+.hsession:hover{ border-color:rgba(243,156,99,.5); }
+.hsession.active{ border-color:#F39C63; background:#1B1B21; }
+.hsession .sid{
+color:#fff;
+font-size:11px;
+font-weight:700;
+word-break:break-all;
+}
+.hsession .sid .tag{ color:#F39C63; }
+.hsession .smeta{
+color:#8A8A93;
+font-size:10px;
+margin-top:3px;
+}
+.hsession .sprev{
+color:#BAFF7C;
+font-size:10px;
+font-family:monospace;
+margin-top:4px;
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+}
+.history-log{
+flex:1;
+min-width:0;
+display:flex;
+flex-direction:column;
+background:#000;
+}
+.history-log pre{
+flex:1;
+margin:0;
+padding:16px;
+overflow:auto;
+color:#BAFF7C;
+font-family:monospace;
+font-size:14px;
+line-height:1.5;
+white-space:pre-wrap;
+word-break:break-word;
+}
+.history-empty{
+color:#8A8A93;
+font-size:13px;
+padding:24px;
+}
+
 </style>
 </head>
 
 <body>
 
-<div class="calculator">
+<div class="toolbar">
+<button type="button" class="toolbtn" id="btnRecord">Record de tiro</button>
+<button type="button" class="toolbtn" id="btnHistory">Historial de sesion</button>
+</div>
+
+<div class="calculator" id="calculator">
 
 <div class="lcd">
 <div id="lcdtext">SANTA BARBARA</div>
@@ -107,7 +378,7 @@ button:active{ transform:scale(.95); }
 <button data="V">V</button><button data="B">B</button><button data="N">N</button>
 <button data="M">M</button><button data="(">(</button><button data=")">)</button>
 
-<button class="endline" data="ENTER">ENDLINE</button>
+<button class="endline" data="ENTER">ENDL</button>
 
 <button data="ON">ON</button>
 <button class="yellow" data="F">f</button>
@@ -142,6 +413,36 @@ button:active{ transform:scale(.95); }
 <button class="light" data="+">+</button>
 </div>
 
+</div>
+</div>
+
+<!-- ===== VENTANA: RECORD DE TIRO ===== -->
+<div class="overlay" id="recordOverlay">
+<div class="record-window">
+<button type="button" class="record-save" id="recordSave">Guardar</button>
+<button type="button" class="record-close" id="recordClose" title="Cerrar">X</button>
+<div class="record-body">
+<div class="record-sheet">
+<iframe src="/record-de-tiro.html" title="Record de tiro"></iframe>
+<div class="record-values" id="recordValues"></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ===== VENTANA: HISTORIAL DE INPUTS ===== -->
+<div class="overlay" id="historyOverlay">
+<div class="history-window">
+<div class="history-bar">
+<span class="history-title">Historial de sesion</span>
+<span class="spacer"></span>
+<button type="button" class="hbtn" id="historyRefresh">Refrescar</button>
+<button type="button" class="hbtn" id="historyClose">Cerrar</button>
+</div>
+<div class="history-body">
+<div class="history-sessions" id="historySessions"></div>
+<div class="history-log"><pre id="historyContent">Cargando historial...</pre></div>
+</div>
 </div>
 </div>
 
@@ -276,6 +577,7 @@ if(sendingCommand) return
 sendingCommand = true
 
 captureBasePieceBeforeSend(cmd)
+logEvent("INPUT", cmd.length ? "USUARIO: " + cmd : "USUARIO: ENTER")
 
 fetch("/input",{
 method:"POST",
@@ -286,6 +588,7 @@ body:"cmd="+encodeURIComponent(cmd)
 .then(t=>{
 
     updateBasePieceFromText(t)
+    updateRecordFromResponse(cmd, t)
 
     if(t.trim() === "INITIALIZE"){
     prompt = "INITIALIZE"
@@ -388,6 +691,7 @@ if(sendingCommand && key !== "UP" && key !== "DOWN"){
 
 // 🔥 NAVEGACIÓN PIEZAS
 if(key==="UP"){
+    logEvent("INPUT", "USUARIO: ▲")
     if(pieces.length>0){
         currentPiece--
         if(currentPiece<0) currentPiece = pieces.length-1
@@ -397,6 +701,7 @@ if(key==="UP"){
 }
 
 if(key==="DOWN"){
+    logEvent("INPUT", "USUARIO: ▼")
     if(pieces.length>0){
         currentPiece++
         if(currentPiece>=pieces.length) currentPiece = 0
@@ -455,7 +760,14 @@ document.addEventListener("keydown", function(event){
 
 let key = event.key
 
+// Las ventanas abiertas (record / historial) capturan el teclado
+if(isOverlayOpen()){
+    if(key === "Escape") closeOverlays()
+    return
+}
+
 if(key==="ArrowUp"){
+    logEvent("INPUT", "USUARIO: ▲")
     if(pieces.length>0){
         currentPiece--
         if(currentPiece<0) currentPiece = pieces.length-1
@@ -465,6 +777,7 @@ if(key==="ArrowUp"){
 }
 
 if(key==="ArrowDown"){
+    logEvent("INPUT", "USUARIO: ▼")
     if(pieces.length>0){
         currentPiece++
         if(currentPiece>=pieces.length) currentPiece = 0
@@ -519,6 +832,541 @@ if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
 }
 
 })
+
+</script>
+
+<script>
+// ============================================================
+// VENTANAS: RECORD DE TIRO + HISTORIAL DE INPUTS
+// Backend: endpoints /record y /log en hp71_server/main.cpp
+// Actualizacion en vivo: BroadcastChannel("hp71-record")
+// ============================================================
+
+var recordData = {}
+var recordRows = []
+var recordInputField = null
+var recordChannel = null
+try{ if("BroadcastChannel" in window) recordChannel = new BroadcastChannel("hp71-record") }catch(e){}
+
+var logSessionId = "session-" + new Date().toISOString().replace(/[:.]/g, "-")
+var currentLogLines = []
+var historyOpen = false
+var viewingSession = logSessionId
+
+// ---------- Utilidades de parseo (portadas de cdt-santabarbara) ----------
+var PIECE_HEADER_PATTERN = /^[\s\-–—]*PIECE\s+(\d+)[\s\-–—]*$/i
+var RECORD_ROW_KEYS = ["targetNumber", "pieceNumber", "distance", "charge", "tof", "deflection", "qe"]
+
+function cleanNumber(value){
+    if(!value || /NO\s+DATA/i.test(value)) return undefined
+    var parsed = Number(value)
+    return isFinite(parsed) ? parsed : undefined
+}
+
+function definedRecordPatch(patch){
+    var out = {}
+    Object.keys(patch).forEach(function(k){ if(patch[k] !== undefined) out[k] = patch[k] })
+    return out
+}
+
+function splitPiecesRaw(text){
+    var lines = String(text || "").split(/\r?\n/)
+    var result = []
+    var current = []
+    var currentNumber = null
+
+    for(var i = 0; i < lines.length; i++){
+        var clean = lines[i].trim()
+        var match = clean.match(PIECE_HEADER_PATTERN)
+
+        if(match){
+            if(current.length > 0 && currentNumber !== null)
+                result.push({ number: currentNumber, text: current.join("\n") })
+            currentNumber = parseInt(match[1], 10)
+            current = [clean]
+            continue
+        }
+
+        if(current.length > 0){
+            if(clean.indexOf("COMP CORR") === 0 || clean.indexOf("TESON") === 0) continue
+            if(clean !== "") current.push(clean)
+        }
+    }
+
+    if(current.length > 0 && currentNumber !== null)
+        result.push({ number: currentNumber, text: current.join("\n") })
+
+    return result
+}
+
+function parseRecordFromDisplay(text, fallbackPiece){
+    var pieces = splitPiecesRaw(text)
+    var piece = null
+
+    for(var i = 0; i < pieces.length; i++){
+        if(pieces[i].number === fallbackPiece){ piece = pieces[i]; break }
+    }
+    if(!piece && pieces.length > 0) piece = pieces[0]
+
+    var source = piece ? piece.text : String(text || "")
+
+    return {
+        pieceNumber: piece ? piece.number : undefined,
+        distance: cleanNumber((source.match(/\bDIST\s+([^\s]+)/i) || [])[1]),
+        deflection: cleanNumber((source.match(/\bDEF\s+([^\s]+)/i) || [])[1]),
+        charge: cleanNumber((source.match(/\bCHG\s+([^\s]+)/i) || [])[1]),
+        qe: cleanNumber((source.match(/\bQE\s+([^\s]+)/i) || [])[1]),
+        tof: cleanNumber((source.match(/\bTOF\s+([^\s]+)/i) || [])[1]),
+        angleT: cleanNumber((text.match(/\bANG\s+T(?:\s+\(P\*\):)?\s*([^\s]+)/i) || [])[1]),
+        observerDirection: cleanNumber((text.match(/\bDIR(?:\s+\(P\s+X\):)?\s*([^\s]+)/i) || [])[1]),
+        correctionLR: cleanNumber((text.match(/\bLR\s+SHIFT\s+([^\s]+)/i) || [])[1]),
+        correctionAD: cleanNumber((text.match(/\bAD\s+SHIFT\s+([^\s]+)/i) || [])[1]),
+        correctionUD: cleanNumber((text.match(/\bUD\s+SHIFT\s+([^\s]+)/i) || [])[1])
+    }
+}
+
+function parsePieceRecordRow(piece, context){
+    var parsed = parseRecordFromDisplay(piece.text, piece.number)
+    var row = definedRecordPatch({
+        targetNumber: context.targetNumber,
+        pieceNumber: parsed.pieceNumber !== undefined ? parsed.pieceNumber : piece.number,
+        distance: parsed.distance,
+        charge: parsed.charge,
+        tof: parsed.tof,
+        deflection: parsed.deflection,
+        qe: parsed.qe
+    })
+
+    if(row.pieceNumber === undefined && row.distance === undefined && row.charge === undefined &&
+       row.tof === undefined && row.deflection === undefined && row.qe === undefined)
+        return null
+
+    row.id = Date.now() + "-" + piece.number + "-" + Math.random().toString(36).slice(2, 7)
+    return row
+}
+
+function currentTargetFromDisplay(text){
+    var match = String(text || "").match(/\b(?:KNPT|BLANCO|TGT)\s*(?:\(P\s+\*\))?\s*:?\s*(\d+)/i)
+    return match ? cleanNumber(match[1]) : undefined
+}
+
+function parseDirectionalNumber(value, positiveLetters, negativeLetters){
+    var clean = String(value).trim().toUpperCase()
+    if(!clean) return undefined
+
+    var direction = clean.charAt(0)
+    var numeric = Number((positiveLetters + negativeLetters).indexOf(direction) >= 0 ? clean.slice(1) : clean)
+    if(!isFinite(numeric)) return undefined
+
+    return negativeLetters.indexOf(direction) >= 0 ? -numeric : numeric
+}
+
+function getRecordInputField(text){
+    if(/DIR\s+\(P\s+X\):/i.test(text)) return "observerDirection"
+    if(/\(L\/R\)\s+SHIFT/i.test(text)) return "correctionLR"
+    if(/\(A\/D\)\s+SHIFT/i.test(text)) return "correctionAD"
+    if(/\(U\/D\)\s+SHIFT/i.test(text)) return "correctionUD"
+    return null
+}
+
+function sameRecordRow(a, b){
+    for(var i = 0; i < RECORD_ROW_KEYS.length; i++){
+        var k = RECORD_ROW_KEYS[i]
+        var av = a[k] === undefined ? null : a[k]
+        var bv = b[k] === undefined ? null : b[k]
+        if(av !== bv) return false
+    }
+    return true
+}
+
+function addRecordRowsFromResponse(text){
+    var rawPieces = splitPiecesRaw(text)
+    if(rawPieces.length === 0) return
+
+    for(var i = 0; i < rawPieces.length; i++){
+        var row = parsePieceRecordRow(rawPieces[i], recordData)
+        if(!row) continue
+
+        // Evita duplicados cuando P/Y/N reemiten las mismas piezas
+        var last = recordRows[recordRows.length - 1]
+        if(last && sameRecordRow(last, row)) continue
+
+        recordRows.push(row)
+    }
+
+    if(recordRows.length > 7) recordRows = recordRows.slice(-7)
+}
+
+// Se ejecuta con cada respuesta de la calculadora
+function updateRecordFromResponse(cmd, text){
+    if(cmd === "ON"){
+        recordData = {}
+        recordRows = []
+        recordInputField = null
+        pushRecord()
+        renderRecord()
+        return
+    }
+
+    var cleanCmd = String(cmd || "").trim()
+    var pendingField = (cleanCmd !== "P" && cleanCmd !== "*") ? recordInputField : null
+    var patch = {}
+
+    if(pendingField && cleanCmd){
+        if(pendingField === "observerDirection"){
+            var vDir = Number(cleanCmd)
+            if(isFinite(vDir)) patch.observerDirection = vDir
+        } else if(pendingField === "correctionLR"){
+            var vLr = parseDirectionalNumber(cleanCmd, "R", "L")
+            if(vLr !== undefined) patch.correctionLR = vLr
+        } else if(pendingField === "correctionAD"){
+            var vAd = parseDirectionalNumber(cleanCmd, "A", "D")
+            if(vAd !== undefined) patch.correctionAD = vAd
+        } else if(pendingField === "correctionUD"){
+            var vUd = parseDirectionalNumber(cleanCmd, "U", "D")
+            if(vUd !== undefined) patch.correctionUD = vUd
+        }
+    }
+
+    var parsed = parseRecordFromDisplay(text, basePieceNumber)
+    var target = currentTargetFromDisplay(text)
+
+    recordData = Object.assign({}, recordData,
+        target !== undefined ? { targetNumber: target } : {},
+        definedRecordPatch(parsed),
+        patch)
+
+    recordInputField = getRecordInputField(text)
+
+    addRecordRowsFromResponse(text)
+
+    pushRecord()
+    renderRecord()
+}
+
+function pushRecord(){
+    try{
+        var payload = JSON.stringify({ data: recordData, rows: recordRows })
+        fetch("/record", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload
+        }).catch(function(){})
+        if(recordChannel) recordChannel.postMessage({ type: "record" })
+    }catch(e){}
+}
+
+// Compone la hoja del record tal cual se ve (formulario + textos + valores)
+// y la devuelve como dataURL PNG listo para descargar en el PC.
+function buildRecordPng(){
+    return new Promise(function(resolve, reject){
+        var sheet = document.querySelector(".record-sheet")
+        var sr = sheet.getBoundingClientRect()
+        var idoc = sheet.querySelector("iframe").contentDocument
+        if(!idoc || idoc.readyState !== "complete" || sr.width === 0){
+            reject(new Error("Hoja no lista"))
+            return
+        }
+
+        var W = Math.round(sr.width)
+        var H = Math.round(sr.height)
+        var scale = 2 // retina para que el texto se vea nitido
+
+        // 1) Serializar el iframe del formulario (imagen + textos + estilos embebidos)
+        var html = new XMLSerializer().serializeToString(idoc.documentElement)
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '">' +
+                  '<foreignObject width="100%" height="100%">' + html + '</foreignObject></svg>'
+        var formUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
+
+        var formImg = new Image()
+        formImg.onload = function(){
+            var c = document.createElement("canvas")
+            c.width = W * scale
+            c.height = H * scale
+            var ctx = c.getContext("2d")
+            ctx.scale(scale, scale)
+            ctx.fillStyle = "#ffffff"
+            ctx.fillRect(0, 0, W, H)
+
+            // 2) Formulario (rejilla + textos tal como se pintan en pantalla)
+            ctx.drawImage(formImg, 0, 0, W, H)
+
+            // 3) Valores encima (azules y verdes)
+            var spans = document.querySelectorAll("#recordValues .rv, #recordValues .rv-row")
+            Array.prototype.forEach.call(spans, function(sp){
+                var text = (sp.textContent || "").trim()
+                if(!text) return
+                var r = sp.getBoundingClientRect()
+                var cs = getComputedStyle(sp)
+                var italic = cs.fontStyle === "italic" ? "italic " : ""
+                ctx.font = italic + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily
+                ctx.fillStyle = cs.color
+                ctx.textBaseline = "middle"
+                var align = cs.textAlign === "center" || cs.textAlign === "" ? "center" : (cs.textAlign === "right" ? "right" : "left")
+                ctx.textAlign = align
+                var x = r.left - sr.left
+                if(align === "center") x += r.width / 2
+                else if(align === "right") x += r.width
+                ctx.fillText(text, x, r.top - sr.top + r.height / 2)
+            })
+
+            resolve(c.toDataURL("image/png"))
+        }
+        formImg.onerror = function(){ reject(new Error("No se pudo componer la hoja")) }
+        formImg.src = formUrl
+    })
+}
+
+// Guardar = descargar la hoja del record tal cual se ve, como PNG en el PC
+function saveRecord(){
+    var btn = document.getElementById("recordSave")
+    if(!btn) return
+
+    buildRecordPng().then(function(dataUrl){
+        var a = document.createElement("a")
+        a.href = dataUrl
+        a.download = "record-de-tiro-" + localTimestamp().replace(/[: ]/g, "-") + ".png"
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+
+        // copia en el servidor tambien (para restaurar tras recargar/reiniciar)
+        pushRecord()
+
+        btn.textContent = "Guardado \u2713"
+        btn.classList.add("saved")
+        setTimeout(function(){ btn.textContent = "Guardar"; btn.classList.remove("saved") }, 2500)
+    }).catch(function(){
+        btn.textContent = "Error al guardar"
+        setTimeout(function(){ btn.textContent = "Guardar" }, 2500)
+    })
+}
+
+// ---------- Pintado de la hoja ----------
+var RECORD_FIELDS = [
+    { key: "targetNumber",       left: "53.3%", top: "6.4%",  width: "8%" },
+    { key: "pieceNumber",        left: "33%",   top: "26.6%", width: "4.5%" },
+    { key: "distance",           left: "52%",   top: "26.6%", width: "9%" },
+    { key: "charge",             left: "39.2%", top: "30%",   width: "3.8%" },
+    { key: "tof",                left: "65.2%", top: "30%",   width: "6.2%" },
+    { key: "deflection",         left: "76.5%", top: "30%",   width: "7.5%" },
+    { key: "qe",                 left: "84%",   top: "30%",   width: "6.5%" },
+    { key: "angleT",             left: "46.8%", top: "30%",   width: "7.5%" },
+    { key: "observerDirection",  left: "27.5%", top: "35.8%", width: "6.5%" },
+    { key: "correctionLR",       left: "32%",   top: "35.8%", width: "4.8%" },
+    { key: "correctionAD",       left: "36%",   top: "35.8%", width: "4.8%" },
+    { key: "correctionUD",       left: "40%",   top: "35.8%", width: "4.8%" }
+]
+
+var RECORD_ROW_FIELDS = [
+    { key: "targetNumber", left: "6.2%",    width: "6.3%" },
+    { key: "pieceNumber",  left: "9.6%",    width: "4.5%" },
+    { key: "distance",     left: "17.73%",  width: "5.7%" },
+    { key: "charge",       left: "28.58%",  width: "3.6%" },
+    { key: "tof",          left: "40%",     width: "5.3%" },
+    { key: "deflection",   left: "55.59%",  width: "6.2%" },
+    { key: "qe",           left: "80.79%",  width: "5.6%" }
+]
+
+function fmtRecord(value){
+    if(value === undefined || value === null || value === 0) return ""
+    return String(Math.round(value * 10) / 10)
+}
+
+function escapeHtml(value){
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+}
+
+function renderRecord(){
+    var box = document.getElementById("recordValues")
+    if(!box) return
+
+    var html = ""
+
+    RECORD_FIELDS.forEach(function(f){
+        var val = fmtRecord(recordData[f.key])
+        html += '<span class="rv" style="left:' + f.left + ";top:" + f.top + ";width:" + f.width +
+                '" title="' + escapeHtml(val) + '">' + escapeHtml(val) + "</span>"
+    })
+
+    recordRows.slice(0, 7).forEach(function(row, rowIndex){
+        var top = (42.95 + rowIndex * 2.252) + "%"
+        RECORD_ROW_FIELDS.forEach(function(f){
+            var val = fmtRecord(row[f.key])
+            html += '<span class="rv-row" style="left:' + f.left + ";top:" + top + ";width:" + f.width +
+                    '" title="' + escapeHtml(val) + '">' + escapeHtml(val) + "</span>"
+        })
+    })
+
+    box.innerHTML = html
+}
+
+// ---------- Historial de INPUTs ----------
+function pad2(n){ return (n < 10 ? "0" : "") + n }
+
+function localTimestamp(){
+    var d = new Date()
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) +
+           " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds())
+}
+
+function logEvent(type, content){
+    try{
+        var body = "type=" + encodeURIComponent(type) +
+                   "&content=" + encodeURIComponent(content) +
+                   "&sessionId=" + encodeURIComponent(logSessionId)
+
+        fetch("/log", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body
+        }).catch(function(){})
+
+        if(type === "INPUT"){
+            var line = "[" + localTimestamp() + "] INPUT: " + content
+            currentLogLines.push(line)
+            if(historyOpen && viewingSession === logSessionId) appendHistoryLine(line)
+        }
+    }catch(e){}
+}
+
+function appendHistoryLine(line){
+    var pre = document.getElementById("historyContent")
+    if(!pre || pre.getAttribute("data-session") !== logSessionId) return
+    pre.textContent += (pre.textContent ? "\n" : "") + line
+    pre.scrollTop = pre.scrollHeight
+}
+
+function renderSessionsList(logs){
+    var box = document.getElementById("historySessions")
+    if(!box) return
+
+    if(!logs || logs.length === 0){
+        box.innerHTML = '<div class="history-empty">Todavía no hay logs para este perfil.</div>'
+        return
+    }
+
+    var html = ""
+
+    logs.forEach(function(log){
+        var isCurrent = log.id === logSessionId
+        var active = log.id === viewingSession ? " active" : ""
+        var last = (log.preview && log.preview.length) ? log.preview[log.preview.length - 1] : ""
+
+        html += '<div class="hsession' + active + '" data-id="' + escapeHtml(log.id) + '">' +
+                    '<div class="sid">' + escapeHtml(log.id) +
+                        (isCurrent ? ' <span class="tag">(actual)</span>' : "") +
+                    "</div>" +
+                    '<div class="smeta">' + escapeHtml(log.updatedAt || "") + " · " + log.entries + " entradas</div>" +
+                    '<div class="sprev">' + escapeHtml(last) + "</div>" +
+                "</div>"
+    })
+
+    box.innerHTML = html
+
+    Array.prototype.forEach.call(box.querySelectorAll(".hsession"), function(el){
+        el.addEventListener("click", function(){
+            viewingSession = el.getAttribute("data-id")
+
+            Array.prototype.forEach.call(box.querySelectorAll(".hsession"), function(other){
+                other.classList.toggle("active", other.getAttribute("data-id") === viewingSession)
+            })
+
+            loadSessionContent(viewingSession)
+        })
+    })
+}
+
+function refreshHistoryList(){
+    fetch("/log", { cache: "no-store" })
+        .then(function(r){ return r.json() })
+        .then(function(j){ renderSessionsList((j && j.logs) || []) })
+        .catch(function(){
+            var box = document.getElementById("historySessions")
+            if(box) box.innerHTML = '<div class="history-empty">No se pudo leer el historial.</div>'
+        })
+}
+
+function loadSessionContent(id){
+    var pre = document.getElementById("historyContent")
+    if(!pre) return
+
+    pre.textContent = "Cargando..."
+    pre.setAttribute("data-session", id)
+
+    fetch("/log?session=" + encodeURIComponent(id), { cache: "no-store" })
+        .then(function(r){ return r.text() })
+        .then(function(txt){
+            pre.textContent = txt || "(sin entradas)"
+            if(id === logSessionId) currentLogLines = txt ? txt.split(/\r?\n/).filter(Boolean) : []
+            pre.scrollTop = pre.scrollHeight
+        })
+        .catch(function(){ pre.textContent = "No se pudo cargar la sesión." })
+}
+
+// ---------- Apertura / cierre de ventanas ----------
+function isOverlayOpen(){
+    return document.getElementById("recordOverlay").classList.contains("open") ||
+           document.getElementById("historyOverlay").classList.contains("open")
+}
+
+function closeOverlays(){
+    document.getElementById("recordOverlay").classList.remove("open")
+    document.getElementById("historyOverlay").classList.remove("open")
+    historyOpen = false
+}
+
+function restoreRecordFromServer(){
+    fetch("/record", { cache: "no-store" })
+        .then(function(r){ return r.json() })
+        .then(function(j){
+            if(!j || !j.data) return
+            if(Object.keys(recordData).length === 0) recordData = j.data
+            if(recordRows.length === 0 && Array.isArray(j.rows)) recordRows = j.rows
+            renderRecord()
+        })
+        .catch(function(){})
+}
+
+function openRecord(){
+    closeOverlays()
+    document.getElementById("recordOverlay").classList.add("open")
+    restoreRecordFromServer()
+    renderRecord()
+}
+
+function openHistory(){
+    closeOverlays()
+    historyOpen = true
+    viewingSession = logSessionId
+    document.getElementById("historyOverlay").classList.add("open")
+    refreshHistoryList()
+    loadSessionContent(logSessionId)
+}
+
+// ---------- Conexiones ----------
+document.getElementById("btnRecord").addEventListener("click", openRecord)
+document.getElementById("btnHistory").addEventListener("click", openHistory)
+document.getElementById("recordClose").addEventListener("click", closeOverlays)
+document.getElementById("recordSave").addEventListener("click", saveRecord)
+document.getElementById("historyClose").addEventListener("click", closeOverlays)
+document.getElementById("historyRefresh").addEventListener("click", function(){
+    refreshHistoryList()
+    loadSessionContent(viewingSession)
+})
+
+if(recordChannel){
+    recordChannel.onmessage = function(){
+        restoreRecordFromServer()
+    }
+}
+
+// Restaura el estado del record tras recargar la página
+restoreRecordFromServer()
 
 </script>
 

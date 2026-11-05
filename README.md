@@ -73,7 +73,7 @@ cd build/hp71_server/Release
 ./hp71_emulator.exe
 ```
 
-El servidor inicia en `http://127.0.0.1:8080`
+El servidor inicia en `http://127.0.0.1:8071`
 
 ## Uso
 

@@ -38,7 +38,7 @@ if (Test-Path $exePath) {
 Start-Sleep -Seconds 1
 
 # ===== BUILD URL =====
-$appUrl = "http://127.0.0.1:8080"
+$appUrl = "http://127.0.0.1:8071"
 if ($sessionToken) {
     $appUrl += "?sessionToken=$sessionToken"
     if ($deviceId) { $appUrl += "&deviceId=$deviceId" }
