@@ -855,7 +855,7 @@ var viewingSession = logSessionId
 
 // ---------- Utilidades de parseo (portadas de cdt-santabarbara) ----------
 var PIECE_HEADER_PATTERN = /^[\s\-–—]*PIECE\s+(\d+)[\s\-–—]*$/i
-var RECORD_ROW_KEYS = ["targetNumber", "pieceNumber", "distance", "charge", "tof", "deflection", "qe"]
+var RECORD_ROW_KEYS = ["dir", "lr", "ad", "ud", "targetNumber", "pieceNumber", "distance", "charge", "tof", "deflection", "qe"]
 
 function cleanNumber(value){
     if(!value || /NO\s+DATA/i.test(value)) return undefined
@@ -987,6 +987,12 @@ function addRecordRowsFromResponse(text){
         var row = parsePieceRecordRow(rawPieces[i], recordData)
         if(!row) continue
 
+        // Correcciones vigentes al disparar: se pintan en la fila verde
+        row.dir = recordData.observerDirection
+        row.lr  = recordData.correctionLR
+        row.ad  = recordData.correctionAD
+        row.ud  = recordData.correctionUD
+
         // Evita duplicados cuando P/Y/N reemiten las mismas piezas
         var last = recordRows[recordRows.length - 1]
         if(last && sameRecordRow(last, row)) continue
@@ -1031,6 +1037,13 @@ function updateRecordFromResponse(cmd, text){
     var parsed = parseRecordFromDisplay(text, basePieceNumber)
     var target = currentTargetFromDisplay(text)
 
+    // Azules = primer calculo (antes de correcciones): se congelan en la
+    // primera vez que tienen valor y ya no se sobreescriben (hasta ON).
+    var frozenBlueKeys = ["distance", "charge", "deflection", "qe"]
+    frozenBlueKeys.forEach(function(k){
+        if(recordData[k] !== undefined) delete parsed[k]
+    })
+
     recordData = Object.assign({}, recordData,
         target !== undefined ? { targetNumber: target } : {},
         definedRecordPatch(parsed),
@@ -1074,8 +1087,22 @@ function buildRecordPng(){
 
         // 1) Serializar el iframe del formulario (imagen + textos + estilos embebidos)
         var html = new XMLSerializer().serializeToString(idoc.documentElement)
-        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '">' +
-                  '<foreignObject width="100%" height="100%">' + html + '</foreignObject></svg>'
+        html = html.replace(/^<\?xml[^>]*\?>/, "")
+        // Los scripts no corren dentro de la imagen y solo ensucian
+        html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+        // Estilos que rompen el render en foreignObject (fit-content / 100vw + scale)
+        html = html.replace(/<style id="solo-documento-sin-fondo">[\s\S]*?<\/style>/i, "")
+        html = html.replace(/<style id="cdt-record-fit">[\s\S]*?<\/style>/i, "")
+        // La hoja se serializa a su tamano natural (792x612, sin transform) y el
+        // escalado al lienzo lo hace drawImage: transform:scale() > 1 dentro de
+        // foreignObject rompe el render en Chromium (sale todo en blanco).
+        var fixCss =
+            "html,body{margin:0!important;padding:0!important;background:#fff!important;width:100%!important;height:100%!important;overflow:hidden!important}" +
+            "#sidebar,.loading-indicator{display:none!important}"
+        html = html.replace(/<head([^>]*)>/i, "<head$1><style>" + fixCss + "</style>")
+
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="792" height="612">' +
+                  '<foreignObject width="792" height="612">' + html + '</foreignObject></svg>'
         var formUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
 
         var formImg = new Image()
@@ -1143,33 +1170,49 @@ function saveRecord(){
 }
 
 // ---------- Pintado de la hoja ----------
+// ALCANCE/LOT.C/DF.Disp/Q.E = primer calculo (antes de correcciones, ver
+// updateRecordFromResponse). PZA# = pieza base. ANG T va en la casilla del
+// simbolo + T (junto a MENSAJE AL OBSERVADOR).
 var RECORD_FIELDS = [
     { key: "targetNumber",       left: "53.3%", top: "6.4%",  width: "8%" },
-    { key: "pieceNumber",        left: "33%",   top: "26.6%", width: "4.5%" },
+    { key: "pieceNumber",        left: "33%",   top: "26.6%", width: "4.5%", value: function(){ return basePieceNumber } },
     { key: "distance",           left: "52%",   top: "26.6%", width: "9%" },
     { key: "charge",             left: "39.2%", top: "30%",   width: "3.8%" },
     { key: "tof",                left: "65.2%", top: "30%",   width: "6.2%" },
     { key: "deflection",         left: "76.5%", top: "30%",   width: "7.5%" },
     { key: "qe",                 left: "84%",   top: "30%",   width: "6.5%" },
-    { key: "angleT",             left: "46.8%", top: "30%",   width: "7.5%" },
-    { key: "observerDirection",  left: "27.5%", top: "35.8%", width: "6.5%" },
-    { key: "correctionLR",       left: "32%",   top: "35.8%", width: "4.8%" },
-    { key: "correctionAD",       left: "36%",   top: "35.8%", width: "4.8%" },
-    { key: "correctionUD",       left: "40%",   top: "35.8%", width: "4.8%" }
+    { key: "angleT",             left: "32.18%", top: "31.5%", width: "7.5%" }
 ]
 
+// Fila verde: correcciones (DIR/L-R/A-D/U-D con letra) + resultados del calculo
+// Centros de celda medidos sobre la hoja: AZ 4.8-11.0, DESV 11.0-15.5,
+// ALC 15.5-19.9, ALT ESP 19.9-23.8, MA.G 23.8-33.3, TI 37.8-41.6,
+// DEF.DISP 52.2-59.0, QE 78.1-83.4
 var RECORD_ROW_FIELDS = [
-    { key: "targetNumber", left: "6.2%",    width: "6.3%" },
-    { key: "pieceNumber",  left: "9.6%",    width: "4.5%" },
-    { key: "distance",     left: "17.73%",  width: "5.7%" },
-    { key: "charge",       left: "28.58%",  width: "3.6%" },
-    { key: "tof",          left: "40%",     width: "5.3%" },
-    { key: "deflection",   left: "55.59%",  width: "6.2%" },
-    { key: "qe",           left: "80.79%",  width: "5.6%" }
+    { key: "dir",          left: "7.9%",    width: "6.3%", fmt: fmtDirPlain },
+    { key: "lr",           left: "13.25%",  width: "4.5%", fmt: function(v){ return fmtDir(v, "R", "L") } },
+    { key: "ad",           left: "17.73%",  width: "5.7%", fmt: function(v){ return fmtDir(v, "A", "D") } },
+    { key: "ud",           left: "21.85%",  width: "4.8%", fmt: function(v){ return fmtDir(v, "U", "D") } },
+    { key: "charge",       left: "28.58%",  width: "3.6%", fmt: fmtRecord },
+    { key: "tof",          left: "40%",     width: "5.3%", fmt: fmtRecord },
+    { key: "deflection",   left: "55.59%",  width: "6.2%", fmt: fmtRecord },
+    { key: "qe",           left: "80.79%",  width: "5.6%", fmt: fmtRecord }
 ]
 
 function fmtRecord(value){
     if(value === undefined || value === null || value === 0) return ""
+    return String(Math.round(value * 10) / 10)
+}
+
+// Correcciones con letra en vez de signo: -200 -> L200, -50 -> D50, 10 -> U10
+function fmtDir(value, positiveLetter, negativeLetter){
+    if(!value) return ""
+    var n = Math.round(value * 10) / 10
+    return (n < 0 ? negativeLetter : positiveLetter) + Math.abs(n)
+}
+
+function fmtDirPlain(value){
+    if(!value) return ""
     return String(Math.round(value * 10) / 10)
 }
 
@@ -1188,7 +1231,7 @@ function renderRecord(){
     var html = ""
 
     RECORD_FIELDS.forEach(function(f){
-        var val = fmtRecord(recordData[f.key])
+        var val = fmtRecord(f.value ? f.value() : recordData[f.key])
         html += '<span class="rv" style="left:' + f.left + ";top:" + f.top + ";width:" + f.width +
                 '" title="' + escapeHtml(val) + '">' + escapeHtml(val) + "</span>"
     })
@@ -1196,7 +1239,7 @@ function renderRecord(){
     recordRows.slice(0, 7).forEach(function(row, rowIndex){
         var top = (42.95 + rowIndex * 2.252) + "%"
         RECORD_ROW_FIELDS.forEach(function(f){
-            var val = fmtRecord(row[f.key])
+            var val = (f.fmt || fmtRecord)(row[f.key])
             html += '<span class="rv-row" style="left:' + f.left + ";top:" + top + ";width:" + f.width +
                     '" title="' + escapeHtml(val) + '">' + escapeHtml(val) + "</span>"
         })

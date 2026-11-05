@@ -1,0 +1,137 @@
+========================================================================
+VARIABLES DEL RECORD DE TIRO  (web_ui/index.html)
+========================================================================
+
+------------------------------------------------------------------------
+1. recordData - Datos globales (valores AZULES de la hoja)
+------------------------------------------------------------------------
+Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
+
+  targetNumber       Numero de blanco (Blanco)          -> hoja: "Blanco"
+  pieceNumber        Numero de pieza (interno)          -> NO se pinta;
+                     PZA# usa basePieceNumber (pieza base) via f.value
+  distance           Alcance (DIST)  [PRIMER CALCULO]   -> hoja: "ALCANCE"
+  charge             Carga (CHG)     [PRIMER CALCULO]   -> hoja: "LOT. C"
+  tof                Tiempo de vuelo (TOF)              -> hoja: "TI."
+                     (ultimo, NO se congela)
+  deflection         Desvio (DEF)     [PRIMER CALCULO]   -> hoja: "DF. Disp"
+  qe                 Elevacion (QE)   [PRIMER CALCULO]   -> hoja: "Q.E"
+  angleT             Angulo de tiro (ANG T, ultimo)     -> hoja: casilla
+                     simbolo+T junto a "MENSAJE AL
+                     OBSERVADOR" (left 32.18% top 31.5%)
+  observerDirection  DIR (P X)                          -> correccion DIR
+  correctionLR       correccion L/R SHIFT               -> ej: -200 = L200
+  correctionAD       correccion A/D SHIFT               -> ej:  -50 = D50
+  correctionUD       correccion U/D SHIFT               -> ej:   10 = U10
+
+  CONGELADO (primer calculo antes de correcciones):
+    distance, charge, deflection, qe se guardan en la PRIMERA respuesta
+    que les da valor y ya no se sobreescriben (hasta "ON" que limpia
+    todo). Asi ALCANCE muestra el alcance previo a las correcciones y
+    C / DF.Disp / Q.E los del primer calculo.
+
+------------------------------------------------------------------------
+2. recordRows - Filas VERDES de la hoja (maximo 7, se recortan)
+------------------------------------------------------------------------
+Una fila por disparo/pieza (parsePieceRecordRow). Se deduplican con
+sameRecordRow() y se guardan en recordRows[].
+
+Al crear cada fila se copian las correcciones vigentes de recordData:
+  row.dir = recordData.observerDirection   (DIR)
+  row.lr  = recordData.correctionLR        (L/R)
+  row.ad  = recordData.correctionAD        (A/D)
+  row.ud  = recordData.correctionUD        (U/D)
+Si no hay correccion, la casilla queda vacia.
+
+  id                 interno: Date.now() + numero + random
+  targetNumber       numero de blanco de esa fila
+  pieceNumber        numero de pieza de esa fila
+  charge             CHG de esa fila                    -> columna MA. G.
+  tof                TOF de esa fila                    -> columna TI.
+  deflection         DEF de esa fila                    -> columna DEF. DISP
+  qe                 QE de esa fila                     -> columna QE
+
+  RECORD_ROW_KEYS = ["dir","lr","ad","ud","targetNumber","pieceNumber",
+                     "distance","charge","tof","deflection","qe"]
+
+------------------------------------------------------------------------
+3. Variables de control
+------------------------------------------------------------------------
+  basePieceNumber    pieza base (default 1); se ajusta con BASE PIECE
+                     (updateBasePieceFromText / captureBasePieceBeforeSend)
+  recordInputField   campo pendiente de entrada del usuario
+                     (observerDirection | correctionLR | correctionAD |
+                     correctionUD | null) - detectado con
+                     getRecordInputField(): "DIR (P X):",
+                     "(L/R) SHIFT", "(A/D) SHIFT", "(U/D) SHIFT"
+  recordChannel      BroadcastChannel("hp71-record") entre ventanas
+  recordOpen / historyOpen   estado de los modales
+
+------------------------------------------------------------------------
+4. Persistencia (servidor - hp71_server/main.cpp)
+------------------------------------------------------------------------
+  POST /record   body JSON: { "data": { ...recordData },
+                              "rows": [ ...recordRows ] }
+  GET  /record   devuelve ese JSON
+  Archivo:       <exeDir>/hp71-logs/record.json
+  Limpio:        {"data":{},"rows":[]}
+  Sesiones:      <exeDir>/hp71-logs/*.log  (NO se borran)
+
+------------------------------------------------------------------------
+5. Origen de cada valor (parseo de la pantalla)
+------------------------------------------------------------------------
+  targetNumber       /\b(?:KNPT|BLANCO|TGT)\s*...:\s*(\d+)/i
+  pieceNumber        numero de pieza del bloque (splitPiecesRaw)
+  distance           /\bDIST\s+([^\s]+)/i
+  deflection         /\bDEF\s+([^\s]+)/i
+  charge             /\bCHG\s+([^\s]+)/i
+  qe                 /\bQE\s+([^\s]+)/i
+  tof                /\bTOF\s+([^\s]+)/i
+  angleT             /\bANG\s+T(?:\s+\(P\*\):)?\s*([^\s]+)/i
+  observerDirection  /\bDIR(?:\s+\(P\s+X\):)?\s*([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd) numerico)
+  correctionLR       /\bLR\s+SHIFT\s+([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd,"R","L"))
+                     negativo -> L, positivo -> R
+  correctionAD       /\bAD\s+SHIFT\s+([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd,"A","D"))
+                     negativo -> D, positivo -> A
+  correctionUD       /\bUD\s+SHIFT\s+([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd,"U","D"))
+                     negativo -> D, positivo -> U
+
+------------------------------------------------------------------------
+6. MAPEO AZULES + VERDES (implementado)
+------------------------------------------------------------------------
+Azules (RECORD_FIELDS):
+  PZA#        <- basePieceNumber (pieza base, via f.value)
+  ALCANCE     <- distance  [congelado: 1er calculo, antes de correcciones]
+  LOT. C      <- charge    [congelado: 1er calculo]
+  DF.Disp     <- deflection[congelado: 1er calculo]
+  Q.E         <- qe        [congelado: 1er calculo]
+  casilla
+  simbolo+T   <- angleT (ultimo ANG T del menu de correcciones)
+  TI.         <- tof (ultimo, NO se congela)
+  Blanco      <- targetNumber (ultimo)
+
+Correcciones -> fila verde (formato letra, ej. L200 no -200):
+  DIR  -> columna "AZ. MA G, Esp"
+  L/R  -> columna "DESV."
+  A/D  -> columna "ALC."
+  U/D  -> columna "ALT ESP"
+Resultados en sus columnas de esa fila:
+  tof        -> "TI."
+  deflection -> "DEF. DISP"
+  qe         -> "QE"
+  (así sucesivamente cada que se hagan correcciones)
+Casillas sin correccion quedan vacias.
+
+========================================================================
+Fichero: web_ui/index.html
+  RECORD_FIELDS      ~linea 1166  (campos azules)
+  RECORD_ROW_FIELDS  ~linea 1183  (columnas verdes)
+  renderRecord()     ~linea 1224
+  buildRecordPng()   ~linea 1067  (boton Guardar - WIP, pausado)
+  updateRecordFromResponse() ~linea 1013
+  Congelado azul: frozenBlueKeys ~linea 1042
+========================================================================
