@@ -998,22 +998,29 @@ function addRecordRowsFromResponse(text){
     var rawPieces = splitPiecesRaw(text)
     if(rawPieces.length === 0) return
 
+    // UNA SOLA FILA POR RONDA: la pieza que la pantalla muestra como calculo
+    // (la base, ver parsePieces -> currentPiece = basePieceIndex), la misma
+    // que alimenta los campos azules (parseRecordFromDisplay usa este criterio).
+    var target = null
     for(var i = 0; i < rawPieces.length; i++){
-        var row = parsePieceRecordRow(rawPieces[i], recordData)
-        if(!row) continue
-
-        // Correcciones vigentes al disparar: se pintan en la fila verde
-        row.dir = recordData.observerDirection
-        row.lr  = recordData.correctionLR
-        row.ad  = recordData.correctionAD
-        row.ud  = recordData.correctionUD
-
-        // Evita duplicados cuando P/Y/N reemiten las mismas piezas
-        var last = recordRows[recordRows.length - 1]
-        if(last && sameRecordRow(last, row)) continue
-
-        recordRows.push(row)
+        if(rawPieces[i].number === basePieceNumber){ target = rawPieces[i]; break }
     }
+    if(!target) target = rawPieces[0]
+
+    var row = parsePieceRecordRow(target, recordData)
+    if(!row) return
+
+    // Correcciones vigentes al disparar: se pintan en la fila verde
+    row.dir = recordData.observerDirection
+    row.lr  = recordData.correctionLR
+    row.ad  = recordData.correctionAD
+    row.ud  = recordData.correctionUD
+
+    // Evita duplicados cuando P/Y/N reemiten la misma solucion
+    var last = recordRows[recordRows.length - 1]
+    if(last && sameRecordRow(last, row)) return
+
+    recordRows.push(row)
 
     if(recordRows.length > 7) recordRows = recordRows.slice(-7)
 }

@@ -37,8 +37,12 @@ Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
 ------------------------------------------------------------------------
 2. recordRows - Filas VERDES de la hoja (maximo 7, se recortan)
 ------------------------------------------------------------------------
-Una fila por disparo/pieza (parsePieceRecordRow). Se deduplican con
-sameRecordRow() y se guardan en recordRows[].
+Una fila por RONDA de correcciones (solo tras N/Y en COMP CORR): se
+parsea UNA SOLA pieza, la BASE, que es la que la pantalla muestra como
+calculo (parsePieces fija currentPiece en la base; mismo criterio que
+los campos azules). Asi 1 correccion = 1 fila (no una por pieza de la
+bateria). Se deduplica con sameRecordRow() (P/Y/N que reemiten la misma
+solucion no duplican) y se guarda en recordRows[].
 
 Al crear cada fila se copian las correcciones vigentes de recordData:
   row.dir = recordData.observerDirection   (DIR)
