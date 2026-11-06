@@ -927,6 +927,9 @@ function parseRecordFromDisplay(text, fallbackPiece){
         })((source.match(/\bCHG\s+([^\s]+)/i) || [])[1]),
         qe: cleanNumber((source.match(/\bQE\s+([^\s]+)/i) || [])[1]),
         tof: cleanNumber((source.match(/\bTOF\s+([^\s]+)/i) || [])[1]),
+        // Coordenadas del blanco (bloque "TGT DATA: EAST:/NORTH:" del flujo REG)
+        targetEast: cleanNumber((text.match(/\bEAST:\s*(-?\d+(?:\.\d+)?)/i) || [])[1]),
+        targetNorth: cleanNumber((text.match(/\bNORTH:\s*(-?\d+(?:\.\d+)?)/i) || [])[1]),
         angleT: cleanNumber((text.match(/\bANG\s+T(?:\s+\(P\*\):)?\s*([^\s]+)/i) || [])[1]),
         observerDirection: cleanNumber((text.match(/\bDIR(?:\s+\(P\s+X\):)?\s*([^\s]+)/i) || [])[1]),
         correctionLR: cleanNumber((text.match(/\bLR\s+SHIFT\s+([^\s]+)/i) || [])[1]),
@@ -1227,7 +1230,16 @@ var RECORD_FIELDS = [
     { key: "tof",                left: "65.2%", top: "28.59%", width: "6.2%" },
     { key: "deflection",         left: "76.5%", top: "28.59%", width: "7.5%" },
     { key: "qe",                 left: "84%",   top: "28.59%", width: "6.5%" },
-    { key: "angleT",             left: "32.18%", top: "31.5%", width: "7.5%" }
+    { key: "angleT",             left: "32.18%", top: "31.5%", width: "7.5%" },
+    // COORDENADAS del blanco (TGT): se capturan del bloque "TGT DATA: EAST:/NORTH:"
+    { key: "targetCoords",       left: "32.5%",  top: "8.55%", width: "34%",
+      value: function(){
+          var e = recordData.targetEast
+          var n = recordData.targetNorth
+          if(e === undefined && n === undefined) return ""
+          var fmt = function(v){ return v === undefined || v === null ? "" : String(Math.round(v * 10) / 10) }
+          return "E " + fmt(e) + "   N " + fmt(n)
+      } }
 ]
 
 // Fila verde: correcciones (DIR/L-R/A-D/U-D con letra) + resultados del calculo

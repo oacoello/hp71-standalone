@@ -21,6 +21,13 @@ Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
   angleT             Angulo de tiro (ANG T, ultimo)     -> hoja: casilla
                      simbolo+T junto a "MENSAJE AL
                      OBSERVADOR" (left 32.18% top 31.5%)
+  targetEast         Este del blanco (TGT)              -> hoja: linea
+  targetNorth        Norte del blanco (TGT)               "COORDENADAS."
+                     Se capturan del bloque "TGT DATA:
+                     EAST: x / NORTH: y / ALT: z" que
+                     imprime el flujo REG (FM2 al entrar
+                     el KNPT). Se pintan como
+                     "E <x>   N <y>" (left 32.5% top 8.55%)
   observerDirection  DIR (P X)                          -> correccion DIR
   correctionLR       correccion L/R SHIFT               -> ej: -200 = L200
   correctionAD       correccion A/D SHIFT               -> ej:  -50 = D50
