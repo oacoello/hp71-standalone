@@ -32,7 +32,9 @@ Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
                      (P *):" y "TGT ALT (P *):" (el valor
                      impreso en el prompt es el viejo).
                      Se pintan como "E <x>   N <y>   ALT <z>"
-                     (left 32.5% top 8.55%)
+                     (left 25.8% top 8.8%, centrado sobre la
+                     linea COORDENADAS.; la linea va de
+                     x=145 a x=350 en la hoja)
   targetName         Indicador del blanco (ej. "AA1000")
                      -> hoja: casilla "Blanco" (sustituye
                      al KNPT; si no hay indicador se muestra
