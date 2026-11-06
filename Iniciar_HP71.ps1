@@ -1,5 +1,5 @@
 # ===== HP71 Ballistic Launcher (PowerShell) =====
-# Runs hidden - no wscript.exe in taskbar
+# Runs hidden - compatible con autenticador sb-acceso
 
 param(
     [string]$sessionToken = "",
@@ -10,73 +10,87 @@ param(
 $appDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # ===== READ CLI ARGS (from sb-acceso) =====
-foreach ($arg in $args) {
-    if ($arg -match '^--sessiontoken=(.+)$') { $sessionToken = $Matches[1] }
-    elseif ($arg -match '^--session-token=(.+)$') { $sessionToken = $Matches[1] }
-    elseif ($arg -match '^--deviceid=(.+)$') { $deviceId = $Matches[1] }
-    elseif ($arg -match '^--device-id=(.+)$') { $deviceId = $Matches[1] }
-    elseif ($arg -match '^--applicationcode=(.+)$') { $applicationCode = $Matches[1] }
-    elseif ($arg -match '^--application-code=(.+)$') { $applicationCode = $Matches[1] }
+for ($i = 0; $i -lt $args.Count; $i++) {
+    $arg = $args[$i]
+    $nextArg = if ($i + 1 -lt $args.Count) { $args[$i + 1] } else { "" }
+
+    if ($arg -match '^--(sessiontoken|session-token|session_token)=(.+)$') { $sessionToken = $Matches[2] }
+    elseif ($arg -match '^--token=(.+)$') { $sessionToken = $Matches[1] }
+    elseif ($arg -match '^--(sessiontoken|session-token|session_token|token)$' -and $nextArg) { $sessionToken = $nextArg }
+    elseif ($arg -match '^--(deviceid|device-id|device_id)=(.+)$') { $deviceId = $Matches[2] }
+    elseif ($arg -match '^--(deviceid|device-id|device_id)$' -and $nextArg) { $deviceId = $nextArg }
+    elseif ($arg -match '^--(applicationcode|application-code|application_code)=(.+)$') { $applicationCode = $Matches[2] }
+    elseif ($arg -match '^--(applicationcode|application-code|application_code)$' -and $nextArg) { $applicationCode = $nextArg }
 }
 
 # ===== SPLASH SCREEN =====
-$splashPs = Join-Path $appDir "splash.ps1"
-$splashGif = Join-Path $appDir "Splash.gif"
-if ((Test-Path $splashPs) -and (Test-Path $splashGif)) {
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$splashPs`" -GifPath `"$splashGif`"" -WindowStyle Hidden -Wait
+$splashExe = Join-Path $appDir "splash.exe"
+$splashPs  = Join-Path $appDir "splash.ps1"
+$splashImg = Join-Path $appDir "Splash_screen_hp71b.png"
+
+if (Test-Path $splashExe) {
+    Start-Process -FilePath $splashExe -WindowStyle Hidden
+} elseif ((Test-Path $splashPs) -and (Test-Path $splashImg)) {
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$splashPs`" -ImagePath `"$splashImg`"" -WindowStyle Hidden
 }
 
 # ===== KILL OLD EMULATOR =====
 Get-Process -Name "hp71_emulator" -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep -Milliseconds 300
+Start-Sleep -Milliseconds 200
 
 # ===== LAUNCH EMULATOR (hidden) =====
 $exePath = Join-Path $appDir "hp71_emulator.exe"
 if (Test-Path $exePath) {
-    Start-Process -FilePath $exePath -WindowStyle Hidden
+    Start-Process -FilePath $exePath -WorkingDirectory $appDir -WindowStyle Hidden
+} else {
+    [System.Windows.Forms.MessageBox]::Show("No se encontro hp71_emulator.exe en: `n$appDir", "Error HP71B", 0, 16)
+    exit 1
 }
-Start-Sleep -Seconds 1
+Start-Sleep -Milliseconds 600
 
 # ===== BUILD URL =====
 $appUrl = "http://127.0.0.1:8071"
-if ($sessionToken) {
-    $appUrl += "?sessionToken=$sessionToken"
-    if ($deviceId) { $appUrl += "&deviceId=$deviceId" }
-    if ($applicationCode) { $appUrl += "&applicationCode=$applicationCode" }
+$queryParams = @()
+if ($sessionToken)     { $queryParams += "sessionToken=$sessionToken" }
+if ($deviceId)         { $queryParams += "deviceId=$deviceId" }
+if ($applicationCode)  { $queryParams += "applicationCode=$applicationCode" }
+
+if ($queryParams.Count -gt 0) {
+    $appUrl += "?" + ($queryParams -join "&")
 }
 
-# ===== OPEN BROWSER (via shortcut for taskbar icon) =====
+# ===== OPEN BROWSER (EDGE / CHROME APP MODE) =====
 $iconFile = Join-Path $appDir "icon.ico"
-$edgePath = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
-$chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-$browserPath = ""
+$edgePaths = @(
+    "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+    "${env:ProgramFiles}\Microsoft\Edge\Application\msedge.exe"
+)
+$chromePaths = @(
+    "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
+    "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+)
 
-if (Test-Path $edgePath) { $browserPath = $edgePath }
-elseif (Test-Path $chromePath) { $browserPath = $chromePath }
+$browserPath = ""
+foreach ($p in $edgePaths) { if (Test-Path $p) { $browserPath = $p; break } }
+if (-not $browserPath) {
+    foreach ($p in $chromePaths) { if (Test-Path $p) { $browserPath = $p; break } }
+}
 
 if ($browserPath) {
-    # Create temporary shortcut with icon so taskbar shows it
-    $tempShortcut = Join-Path $env:TEMP "HP71_Calc.lnk"
-    $shell = New-Object -ComObject WScript.Shell
-    $lnk = $shell.CreateShortcut($tempShortcut)
-    $lnk.TargetPath = $browserPath
-    $lnk.Arguments = "--app=`"$appUrl`""
-    $lnk.IconLocation = "$iconFile,0"
-    $lnk.Save()
-
-    # Launch from shortcut (taskbar inherits shortcut icon)
-    Start-Process -FilePath $tempShortcut
-    Start-Sleep -Seconds 2
-
-    # Remove temp shortcut
-    Remove-Item $tempShortcut -Force -ErrorAction SilentlyContinue
+    Start-Process -FilePath $browserPath -ArgumentList "--app=`"$appUrl`""
 } else {
     Start-Process $appUrl
 }
 
-# ===== KEEP ALIVE (check every 3s) =====
+# ===== SET TASKBAR ICON =====
+$setIconPs = Join-Path $appDir "set_icon.ps1"
+if ((Test-Path $setIconPs) -and (Test-Path $iconFile)) {
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$setIconPs`" -IconPath `"$iconFile`"" -WindowStyle Hidden
+}
+
+# ===== KEEP ALIVE (check every 2.5s) =====
 while ($true) {
-    Start-Sleep -Seconds 3
+    Start-Sleep -Milliseconds 2500
     $proc = Get-Process -Name "hp71_emulator" -ErrorAction SilentlyContinue
     if (-not $proc) { break }
 }

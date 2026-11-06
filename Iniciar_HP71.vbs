@@ -7,92 +7,137 @@ appDir = fso.GetParentFolderName(WScript.ScriptFullName)
 Dim sessionToken, deviceId, applicationCode
 sessionToken = ""
 deviceId = ""
-applicationCode = ""
+applicationCode = "calc"
 
-Dim i, arg
+Dim i, arg, nextArg, argLower
 For i = 0 To WScript.Arguments.Count - 1
     arg = WScript.Arguments(i)
-    If Left(LCase(arg), 15) = "--sessiontoken=" Then
+    argLower = LCase(arg)
+    nextArg = ""
+    If i < WScript.Arguments.Count - 1 Then nextArg = WScript.Arguments(i + 1)
+
+    If Left(argLower, 15) = "--sessiontoken=" Then
         sessionToken = Mid(arg, 16)
-    ElseIf Left(LCase(arg), 13) = "--session-token=" Then
+    ElseIf Left(argLower, 16) = "--session_token=" Then
+        sessionToken = Mid(arg, 17)
+    ElseIf Left(argLower, 13) = "--session-token=" Then
         sessionToken = Mid(arg, 14)
-    ElseIf Left(LCase(arg), 11) = "--deviceid=" Then
+    ElseIf Left(argLower, 8) = "--token=" Then
+        sessionToken = Mid(arg, 9)
+    ElseIf argLower = "--sessiontoken" Or argLower = "--session-token" Or argLower = "--session_token" Or argLower = "--token" Then
+        If nextArg <> "" Then sessionToken = nextArg
+    ElseIf Left(argLower, 11) = "--deviceid=" Then
         deviceId = Mid(arg, 12)
-    ElseIf Left(LCase(arg), 11) = "--device-id=" Then
+    ElseIf Left(argLower, 11) = "--device-id=" Then
         deviceId = Mid(arg, 12)
-    ElseIf Left(LCase(arg), 18) = "--applicationcode=" Then
+    ElseIf Left(argLower, 11) = "--device_id=" Then
+        deviceId = Mid(arg, 12)
+    ElseIf argLower = "--deviceid" Or argLower = "--device-id" Or argLower = "--device_id" Then
+        If nextArg <> "" Then deviceId = nextArg
+    ElseIf Left(argLower, 18) = "--applicationcode=" Then
         applicationCode = Mid(arg, 19)
-    ElseIf Left(LCase(arg), 18) = "--application-code=" Then
+    ElseIf Left(argLower, 18) = "--application-code=" Then
         applicationCode = Mid(arg, 19)
+    ElseIf Left(argLower, 18) = "--application_code=" Then
+        applicationCode = Mid(arg, 19)
+    ElseIf argLower = "--applicationcode" Or argLower = "--application-code" Or argLower = "--application_code" Then
+        If nextArg <> "" Then applicationCode = nextArg
     End If
 Next
 
-' ===== SPLASH SCREEN =====
-Dim splashPs, splashGif
+' ===== INSTANT SPLASH SCREEN =====
+Dim splashExe, splashPs, splashImg
+splashExe = appDir & "\splash.exe"
 splashPs = appDir & "\splash.ps1"
-splashGif = appDir & "\Splash.gif"
+splashImg = appDir & "\Splash_screen_hp71b.png"
 
-If fso.FileExists(splashPs) And fso.FileExists(splashGif) Then
-    WshShell.Run "powershell -NoProfile -ExecutionPolicy Bypass -File """ & splashPs & """ -GifPath """ & splashGif & """", 0, True
+If fso.FileExists(splashExe) Then
+    WshShell.Run """" & splashExe & """", 0, False
+ElseIf fso.FileExists(splashPs) And fso.FileExists(splashImg) Then
+    WshShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & splashPs & """ -ImagePath """ & splashImg & """", 0, False
 End If
 
-' ===== LAUNCH APP =====
-' Kill previous exe
+' ===== TERMINATE PREVIOUS EMULATOR =====
 On Error Resume Next
-Dim svc
-Set svc = GetObject("winmgmts:\\.\root\cimv2")
-Dim procs, p
-Set procs = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'hp71_emulator.exe'")
-For Each p in procs
-    svc.Get("Win32_Process.Handle=" & p.ProcessId).Terminate
-Next
+WshShell.Run "taskkill /F /IM hp71_emulator.exe", 0, True
 On Error GoTo 0
-WScript.Sleep 300
+WScript.Sleep 200
 
-' Launch exe hidden
-WshShell.CurrentDirectory = appDir
-WshShell.Run "hp71_emulator.exe", 0, False
-WScript.Sleep 1500
+' ===== LAUNCH EMULATOR (HIDDEN) =====
+Dim exePath
+exePath = appDir & "\hp71_emulator.exe"
+If fso.FileExists(exePath) Then
+    WshShell.CurrentDirectory = appDir
+    WshShell.Run """" & exePath & """", 0, False
+Else
+    MsgBox "No se encontro hp71_emulator.exe en: " & vbCrLf & appDir, vbCritical, "Error Calculadora HP71B"
+    WScript.Quit 1
+End If
 
-' ===== BUILD URL WITH TOKEN =====
-Dim appUrl
+' Pausa breve para enlace del socket HTTP en puerto 8071
+WScript.Sleep 600
+
+' ===== BUILD URL WITH SB-ACCESO TOKENS =====
+Dim appUrl, queryParams
 appUrl = "http://127.0.0.1:8071"
+queryParams = ""
 
 If sessionToken <> "" Then
-    appUrl = appUrl & "?sessionToken=" & sessionToken
-    If deviceId <> "" Then appUrl = appUrl & "&deviceId=" & deviceId
-    If applicationCode <> "" Then appUrl = appUrl & "&applicationCode=" & applicationCode
+    queryParams = "sessionToken=" & sessionToken
+End If
+If deviceId <> "" Then
+    If queryParams <> "" Then queryParams = queryParams & "&"
+    queryParams = queryParams & "deviceId=" & deviceId
+End If
+If applicationCode <> "" Then
+    If queryParams <> "" Then queryParams = queryParams & "&"
+    queryParams = queryParams & "applicationCode=" & applicationCode
 End If
 
-' ===== OPEN BROWSER =====
-Dim edgeApp
-edgeApp = WshShell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\Microsoft\Edge\Application\msedge.exe"
-If fso.FileExists(edgeApp) Then
-    WshShell.Run """" & edgeApp & """ --app=""" & appUrl & """", 1, False
+If queryParams <> "" Then
+    appUrl = appUrl & "?" & queryParams
+End If
+
+' ===== OPEN BROWSER (EDGE / CHROME EN MODO APP) =====
+Dim edgePath1, edgePath2, chromePath1, chromePath2, browserPath
+edgePath1 = WshShell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\Microsoft\Edge\Application\msedge.exe"
+edgePath2 = WshShell.ExpandEnvironmentStrings("%ProgramFiles%") & "\Microsoft\Edge\Application\msedge.exe"
+chromePath1 = WshShell.ExpandEnvironmentStrings("%ProgramFiles%") & "\Google\Chrome\Application\chrome.exe"
+chromePath2 = WshShell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\Google\Chrome\Application\chrome.exe"
+browserPath = ""
+
+If fso.FileExists(edgePath1) Then
+    browserPath = edgePath1
+ElseIf fso.FileExists(edgePath2) Then
+    browserPath = edgePath2
+ElseIf fso.FileExists(chromePath1) Then
+    browserPath = chromePath1
+ElseIf fso.FileExists(chromePath2) Then
+    browserPath = chromePath2
+End If
+
+If browserPath <> "" Then
+    WshShell.Run """" & browserPath & """ --app=""" & appUrl & """", 1, False
 Else
-    Dim chromePath
-    chromePath = WshShell.ExpandEnvironmentStrings("%ProgramFiles%") & "\Google\Chrome\Application\chrome.exe"
-    If fso.FileExists(chromePath) Then
-        WshShell.Run """" & chromePath & """ --app=""" & appUrl & """", 1, False
-    Else
-        WshShell.Run appUrl, 1, False
-    End If
+    WshShell.Run """" & appUrl & """", 1, False
 End If
 
-' ===== SET TASKBAR ICON =====
+' ===== APLICAR ICONO NÍTIDO EN TASKBAR =====
 Dim setIconPs, iconFile
 setIconPs = appDir & "\set_icon.ps1"
 iconFile = appDir & "\icon.ico"
 If fso.FileExists(setIconPs) And fso.FileExists(iconFile) Then
-    WshShell.Run "powershell -NoProfile -ExecutionPolicy Bypass -File """ & setIconPs & """ -IconPath """ & iconFile & """", 0, False
+    WshShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & setIconPs & """ -IconPath """ & iconFile & """", 0, False
 End If
 
-' ===== KEEP ALIVE =====
+' ===== SUPERVISIÓN EN BACKGROUND (KEEP-ALIVE) =====
+On Error Resume Next
+Dim svc, procs, p, alive
+Set svc = GetObject("winmgmts:\\.\root\cimv2")
 Do
-    WScript.Sleep 2000
-    Dim alive
+    WScript.Sleep 2500
     alive = False
-    Set procs = svc.ExecQuery("SELECT Name FROM Win32_Process WHERE Name = 'hp71_emulator.exe'")
+    Set procs = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'hp71_emulator.exe'")
     For Each p in procs
         alive = True
     Next

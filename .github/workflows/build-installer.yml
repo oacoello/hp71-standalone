@@ -1,0 +1,63 @@
+name: Compilar Instalador Calculadora HP71B
+
+on:
+  push:
+    branches:
+      - MEJORA-AUTO
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-installer:
+    name: Build Windows Binary & Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar y compilar C++ (CMake + MSVC)
+        shell: bash
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --parallel
+          cp build/hp71_server/Release/hp71_emulator.exe ./hp71_emulator.exe
+          echo "hp71_emulator.exe listo."
+
+      - name: Compilar splash.exe (C# WinForms)
+        shell: pwsh
+        run: |
+          $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          if ((Test-Path $csc) -and (Test-Path "splash.cs")) {
+            & $csc /nologo /target:winexe /out:splash.exe /win32icon:icon.ico splash.cs
+            Write-Host "splash.exe compilado con éxito."
+          }
+
+      - name: Asegurar tablas balísticas en raíz
+        shell: bash
+        run: |
+          if [ -f "tables/tables.csv" ]; then
+            cp tables/tables.csv ./tables.csv
+          fi
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Get-Command "iscc" -ErrorAction SilentlyContinue)) {
+            choco install innosetup --no-progress
+            echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+
+      - name: Compilar Instalador Inno Setup
+        shell: pwsh
+        run: |
+          mkdir -p dist
+          iscc installer.iss
+
+      - name: Subir artefacto Instalador (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Calculadora_HP71B_Installer
+          path: dist/Calculadora_HP71B_Installer.exe
+          if-no-files-found: error
+          retention-days: 30
