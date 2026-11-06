@@ -1158,24 +1158,44 @@ function buildRecordPng(){
         var H = Math.round(sr.height)
         var scale = 2 // retina para que el texto se vea nitido
 
-        // 1) Serializar el iframe del formulario (imagen + textos + estilos embebidos)
-        var html = new XMLSerializer().serializeToString(idoc.documentElement)
-        html = html.replace(/^<\?xml[^>]*\?>/, "")
-        // Los scripts no corren dentro de la imagen y solo ensucian
-        html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-        // Estilos que rompen el render en foreignObject (fit-content / 100vw + scale)
-        html = html.replace(/<style id="solo-documento-sin-fondo">[\s\S]*?<\/style>/i, "")
-        html = html.replace(/<style id="cdt-record-fit">[\s\S]*?<\/style>/i, "")
-        // La hoja se serializa a su tamano natural (792x612, sin transform) y el
-        // escalado al lienzo lo hace drawImage: transform:scale() > 1 dentro de
-        // foreignObject rompe el render en Chromium (sale todo en blanco).
-        var fixCss =
-            "html,body{margin:0!important;padding:0!important;background:#fff!important;width:100%!important;height:100%!important;overflow:hidden!important}" +
-            "#sidebar,.loading-indicator{display:none!important}"
-        html = html.replace(/<head([^>]*)>/i, "<head$1><style>" + fixCss + "</style>")
+        // 1) La hoja es un PDF convertido a HTML (pdf2htmlEX): texto + estilos
+        //    embebidos. Se rasteriza con un SVG foreignObject. Claves para que
+        //    salga completa (si no, sale todo blanco):
+        //    - quitar los <style> que inyecta la app (visor / fit)
+        //    - desactivar animaciones: el .pc arranca en opacity:0 (fadein)
+        //    - fijar la pagina a su tamano natural 792x612, sin margenes ni patron
+        var PAGE_W = 792
+        var PAGE_H = 612
+        var ser = new XMLSerializer()
+        var esc = function(s){ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;") }
 
-        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="792" height="612">' +
-                  '<foreignObject width="792" height="612">' + html + '</foreignObject></svg>'
+        var styles = ""
+        Array.prototype.forEach.call(idoc.querySelectorAll("style"), function(st){
+            var sid = st.id || ""
+            if(sid === "solo-documento-sin-fondo" || sid === "cdt-record-fit") return
+            styles += esc(st.textContent || "")
+        })
+
+        var bodyXml = ser.serializeToString(idoc.body)
+            .replace(/^<body[^>]*>/, "<div>")
+            .replace(/<\/body>$/, "</div>")
+
+        var fixCss =
+            "*{animation:none!important;transition:none!important}" +
+            "html,body{margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important}" +
+            "#sidebar,#outline,.loading-indicator{display:none!important}" +
+            "#page-container{position:absolute!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;" +
+            "width:" + PAGE_W + "px!important;height:" + PAGE_H + "px!important;background:#fff!important;overflow:hidden!important;padding:0!important;margin:0!important}" +
+            ".pf{margin:0!important;box-shadow:none!important;width:" + PAGE_W + "px!important;height:" + PAGE_H + "px!important;background:#fff!important}" +
+            ".pc{display:block!important;opacity:1!important;width:100%!important;height:100%!important}"
+
+        var html = '<div xmlns="http://www.w3.org/1999/xhtml">' +
+                   "<style>" + fixCss + "</style>" +
+                   "<style>" + styles + "</style>" +
+                   bodyXml + "</div>"
+
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + PAGE_W + '" height="' + PAGE_H + '">' +
+                  '<foreignObject width="' + PAGE_W + '" height="' + PAGE_H + '">' + html + '</foreignObject></svg>'
         var formUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
 
         var formImg = new Image()

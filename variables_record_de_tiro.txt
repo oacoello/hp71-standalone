@@ -173,7 +173,7 @@ Azules (RECORD_FIELDS):
   casilla
   simbolo+T   <- angleT (ultimo ANG T del menu de correcciones)
   TI.         <- tof (ultimo, NO se congela)
-  Blanco      <- targetNumber (ultimo)
+  Blanco      <- targetName (indicador TGT, ej. AA1000); si no hay, targetNumber
 
 Correcciones -> fila verde (formato letra, ej. L200 no -200):
   DIR  -> columna "AZ. MA G, Esp"
@@ -188,11 +188,27 @@ Resultados en sus columnas de esa fila:
 Casillas sin correccion quedan vacias.
 
 ========================================================================
+PNG (boton Guardar) - OPERATIVO
+------------------------------------------------------------------------
+La hoja es un PDF convertido a HTML con pdf2htmlEX. buildRecordPng():
+  - serializa el contenido del iframe y lo rasteriza con un SVG
+    foreignObject (Chromium);
+  - quita los <style> que inyecta la app (solo-documento-sin-fondo,
+    cdt-record-fit);
+  - desactiva animaciones: el .pc arranca en opacity:0 por fadein ->
+    si no, la imagen sale en blanco;
+  - fija la pagina a 792x612 sin margenes ni patron de fondo;
+  - dibuja la hoja escalada al lienzo (2x) y ENCIMA pinta los valores
+    (.rv azules y .rv-row verdes) con canvas fillText;
+  - devuelve dataURL PNG y saveRecord() lo descarga como
+    record-de-tiro-<fecha>.png.
+
+========================================================================
 Fichero: web_ui/index.html
   RECORD_FIELDS      ~linea 1166  (campos azules)
   RECORD_ROW_FIELDS  ~linea 1183  (columnas verdes)
   renderRecord()     ~linea 1224
-  buildRecordPng()   ~linea 1067  (boton Guardar - WIP, pausado)
+  buildRecordPng()   (boton Guardar - ver nota PNG arriba)
   updateRecordFromResponse() ~linea 1013
   Congelado azul: frozenBlueKeys ~linea 1042
 ========================================================================
