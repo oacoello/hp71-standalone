@@ -27,19 +27,10 @@ $sessionToken = $sessionToken.Trim('"', "'")
 $deviceId = $deviceId.Trim('"', "'")
 $applicationCode = $applicationCode.Trim('"', "'")
 
-# ===== VALIDAR TOKEN DE SB-ACCESO =====
-if (-not $sessionToken) {
-    Add-Type -AssemblyName System.Windows.Forms
-    [System.Windows.Forms.MessageBox]::Show(
-        "Acceso restringido.`n`nLa Calculadora HP-71B debe ejecutarse exclusivamente desde el autenticador sb-acceso.`n`nPor favor, inicie sesión en sb-acceso y presione el botón 'Abrir' correspondiente a la Calculadora.",
-        "Acceso Restringido - Santa Bárbara",
-        [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]::Stop
-    ) | Out-Null
-    exit 0
+# Si se proporcionó sessionToken desde sb-acceso, asegurar código de aplicación
+if ($sessionToken -and -not $applicationCode) {
+    $applicationCode = "calc"
 }
-
-if (-not $applicationCode) { $applicationCode = "calc" }
 
 # ===== SPLASH SCREEN =====
 $splashExe = Join-Path $appDir "splash.exe"

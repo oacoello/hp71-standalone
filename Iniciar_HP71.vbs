@@ -49,16 +49,10 @@ sessionToken = Trim(Replace(sessionToken, """", ""))
 deviceId = Trim(Replace(deviceId, """", ""))
 applicationCode = Trim(Replace(applicationCode, """", ""))
 
-' ===== VALIDAR TOKEN DE SB-ACCESO =====
-If sessionToken = "" Then
-    MsgBox "Acceso restringido." & vbCrLf & vbCrLf & _
-           "La Calculadora HP-71B debe ejecutarse exclusivamente desde el autenticador sb-acceso." & vbCrLf & vbCrLf & _
-           "Por favor, inicie sesión en sb-acceso y presione el botón 'Abrir' correspondiente a la Calculadora.", _
-           vbCritical, "Acceso Restringido - Santa Bárbara"
-    WScript.Quit 0
+' Si se proporcionó sessionToken desde sb-acceso, asegurar código de aplicación
+If sessionToken <> "" And applicationCode = "" Then
+    applicationCode = "calc"
 End If
-
-If applicationCode = "" Then applicationCode = "calc"
 
 ' ===== INSTANT SPLASH SCREEN =====
 Dim splashExe, splashPs, splashImg

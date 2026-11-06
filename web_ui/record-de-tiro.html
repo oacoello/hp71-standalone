@@ -593,6 +593,12 @@ html, body {
 </div>
 <script id="cdt-record-fit-script">
 (function () {
+  window.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; }, true);
+  window.addEventListener('keydown', function(e){
+    if(e.key === 'F12' || e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) || (e.ctrlKey && (e.key === 'U' || e.key === 'u'))){
+      e.preventDefault(); e.stopPropagation(); return false;
+    }
+  }, true);
   function fitRecord() {
     var scale = Math.min(window.innerWidth / 792.12, window.innerHeight / 612.5);
     document.documentElement.style.setProperty('--cdt-record-scale', String(scale));
