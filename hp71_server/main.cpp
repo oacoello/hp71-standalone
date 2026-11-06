@@ -401,6 +401,63 @@ void runServer()
         res.set_content("{\"success\":true}", "application/json");
     });
 
+    // ----- Iconos y assets visuales para barra de tareas y titulo de ventana -----
+    server.Get("/icon.ico", [](const httplib::Request&, httplib::Response& res)
+    {
+        std::string content;
+        if(loadAsset("icon.ico", content))
+        {
+            res.set_header("Cache-Control", "public, max-age=86400");
+            res.set_content(content, "image/x-icon");
+        }
+        else
+        {
+            res.status = 404;
+        }
+    });
+
+    server.Get("/favicon.ico", [](const httplib::Request&, httplib::Response& res)
+    {
+        std::string content;
+        if(loadAsset("icon.ico", content))
+        {
+            res.set_header("Cache-Control", "public, max-age=86400");
+            res.set_content(content, "image/x-icon");
+        }
+        else
+        {
+            res.status = 404;
+        }
+    });
+
+    server.Get("/icon.png", [](const httplib::Request&, httplib::Response& res)
+    {
+        std::string content;
+        if(loadAsset("icon.png", content) || loadAsset("Splash_screen_hp71b.png", content))
+        {
+            res.set_header("Cache-Control", "public, max-age=86400");
+            res.set_content(content, "image/png");
+        }
+        else
+        {
+            res.status = 404;
+        }
+    });
+
+    server.Get("/manifest.json", [](const httplib::Request&, httplib::Response& res)
+    {
+        std::string content;
+        if(loadAsset("manifest.json", content))
+        {
+            res.set_header("Cache-Control", "public, max-age=86400");
+            res.set_content(content, "application/json");
+        }
+        else
+        {
+            res.set_content("{\"name\":\"SANTA BARBARA\",\"short_name\":\"HP71B\",\"display\":\"standalone\",\"icons\":[{\"src\":\"/icon.ico\",\"sizes\":\"256x256\",\"type\":\"image/x-icon\"}]}", "application/json");
+        }
+    });
+
     // ----- Hoja del record de tiro (PDF convertido, autocontenido) -----
     server.Get("/record-de-tiro.html", [](const httplib::Request&, httplib::Response& res)
     {

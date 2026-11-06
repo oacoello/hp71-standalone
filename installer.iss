@@ -37,6 +37,8 @@ Source: "set_icon.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "splash.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Splash_screen_hp71b.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "icon.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "manifest.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "tables.csv"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Binarios ejecutables (desde raíz o desde build)
