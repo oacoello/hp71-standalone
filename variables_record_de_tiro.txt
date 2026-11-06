@@ -113,11 +113,16 @@ TIMING (gate verde - recordGreenArmed):
                      "(L/R) SHIFT", "(A/D) SHIFT", "(U/D) SHIFT",
                      "(U/D) CORR"  [ruta Y de COMP CORR]
   recordGreenArmed   gate de filas verdes: true solo desde que se responde
-                     N o Y con COMP CORR en pantalla hasta un ON (no persiste)
+                     N o Y con COMP CORR en pantalla hasta un ON
+                     (o un DATA CLEARED); no persiste
   recordLastResponse ultima respuesta del motor (el prompt que el usuario
                      tenia en pantalla antes de teclear); base del gate
   recordChannel      BroadcastChannel("hp71-record") entre ventanas
   recordOpen / historyOpen   estado de los modales
+
+  LIMPIEZA DEL RECORD: el boton ON y la respuesta "DATA CLEARED"
+  (MAIN -> X, resetData() del motor) limpian recordData y recordRows y
+  hacen pushRecord() -> record.json queda {"data":{},"rows":[]}.
 
 ------------------------------------------------------------------------
 4. Persistencia (servidor - hp71_server/main.cpp)

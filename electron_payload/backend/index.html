@@ -1044,7 +1044,9 @@ function addRecordRowsFromResponse(text){
 
 // Se ejecuta con cada respuesta de la calculadora
 function updateRecordFromResponse(cmd, text){
-    if(cmd === "ON"){
+    // Limpian el record: el boton ON y "DATA CLEARED" (MAIN -> X, que ejecuta
+    // resetData() en el motor y devuelve "DATA CLEARED\nMAIN...").
+    if(cmd === "ON" || String(text || "").indexOf("DATA CLEARED") >= 0){
         recordData = {}
         recordRows = []
         recordInputField = null
