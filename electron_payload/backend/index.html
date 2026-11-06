@@ -845,6 +845,11 @@ if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
 var recordData = {}
 var recordRows = []
 var recordInputField = null
+// Filas verdes = correcciones: solo se crean despues de responder N o Y en
+// el menu COMP CORR. Se arma en updateRecordFromResponse y se resetea con ON.
+var recordGreenArmed = false
+// Ultima respuesta del motor = prompt que el usuario tenia en pantalla.
+var recordLastResponse = ""
 var recordChannel = null
 try{ if("BroadcastChannel" in window) recordChannel = new BroadcastChannel("hp71-record") }catch(e){}
 
@@ -971,6 +976,8 @@ function getRecordInputField(text){
     if(/\(L\/R\)\s+SHIFT/i.test(text)) return "correctionLR"
     if(/\(A\/D\)\s+SHIFT/i.test(text)) return "correctionAD"
     if(/\(U\/D\)\s+SHIFT/i.test(text)) return "correctionUD"
+    // Ruta Y de COMP CORR: TIME REG pide la correccion como (U/D) CORR (*)
+    if(/\(U\/D\)\s+CORR/i.test(text)) return "correctionUD"
     return null
 }
 
@@ -985,6 +992,9 @@ function sameRecordRow(a, b){
 }
 
 function addRecordRowsFromResponse(text){
+    // Gate verde: sin N/Y previo en COMP CORR no se crea ninguna fila.
+    if(!recordGreenArmed) return
+
     var rawPieces = splitPiecesRaw(text)
     if(rawPieces.length === 0) return
 
@@ -1014,12 +1024,23 @@ function updateRecordFromResponse(cmd, text){
         recordData = {}
         recordRows = []
         recordInputField = null
+        recordGreenArmed = false
+        recordLastResponse = ""
         pushRecord()
         renderRecord()
         return
     }
 
     var cleanCmd = String(cmd || "").trim()
+
+    // Arma el verde: N o Y contestados con el menu COMP CORR visible
+    // (recordLastResponse todavia guarda el prompt anterior a esta respuesta).
+    var upperCmd = cleanCmd.toUpperCase()
+    if((upperCmd === "N" || upperCmd === "Y") &&
+       recordLastResponse.indexOf("COMP CORR") >= 0){
+        recordGreenArmed = true
+    }
+
     var pendingField = (cleanCmd !== "P" && cleanCmd !== "*") ? recordInputField : null
     var patch = {}
 
@@ -1034,7 +1055,8 @@ function updateRecordFromResponse(cmd, text){
             var vAd = parseDirectionalNumber(cleanCmd, "A", "D")
             if(vAd !== undefined) patch.correctionAD = vAd
         } else if(pendingField === "correctionUD"){
-            var vUd = parseDirectionalNumber(cleanCmd, "U", "D")
+            // "X" en (U/D) CORR cancela (no cambia la correccion)
+            var vUd = cleanCmd !== "X" ? parseDirectionalNumber(cleanCmd, "U", "D") : undefined
             if(vUd !== undefined) patch.correctionUD = vUd
         }
     }
@@ -1057,6 +1079,9 @@ function updateRecordFromResponse(cmd, text){
     recordInputField = getRecordInputField(text)
 
     addRecordRowsFromResponse(text)
+
+    // Esta respuesta pasa a ser el "prompt anterior" para la proxima entrada
+    recordLastResponse = String(text || "")
 
     pushRecord()
     renderRecord()

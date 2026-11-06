@@ -25,6 +25,8 @@ Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
   correctionLR       correccion L/R SHIFT               -> ej: -200 = L200
   correctionAD       correccion A/D SHIFT               -> ej:  -50 = D50
   correctionUD       correccion U/D SHIFT               -> ej:   10 = U10
+                     (capturada tambien en la ruta Y: prompt "(U/D) CORR (*)";
+                      "X" ahi cancela y NO cambia el valor)
 
   CONGELADO (primer calculo antes de correcciones):
     distance, charge, deflection, qe se guardan en la PRIMERA respuesta
@@ -44,6 +46,18 @@ Al crear cada fila se copian las correcciones vigentes de recordData:
   row.ad  = recordData.correctionAD        (A/D)
   row.ud  = recordData.correctionUD        (U/D)
 Si no hay correccion, la casilla queda vacia.
+
+TIMING (gate verde - recordGreenArmed):
+  Las filas verdes son las CORRECCIONES y solo se crean DESPUES de responder
+  N o Y en el menu COMP CORR (cada ronda de correcciones en su fila).
+  - updateRecordFromResponse(): si el cmd es "N"/"Y" y la respuesta anterior
+    (recordLastResponse) contiene "COMP CORR" -> recordGreenArmed = true.
+  - addRecordRowsFromResponse(): si !recordGreenArmed no crea ninguna fila
+    (la solucion inicial NO genera filas verdes).
+  - cmd "ON": resetea recordGreenArmed = false y recordLastResponse = "".
+  La bandera no se persiste: si se recarga la pagina hay que volver a pasar
+  por N/Y en COMP CORR (que siempre abre cada ronda) antes de la siguiente fila.
+  El motor (basic_engine.cpp) NO cambia: el gating es solo en la UI.
 
   id                 interno: Date.now() + numero + random
   targetNumber       numero de blanco de esa fila
@@ -65,7 +79,12 @@ Si no hay correccion, la casilla queda vacia.
                      (observerDirection | correctionLR | correctionAD |
                      correctionUD | null) - detectado con
                      getRecordInputField(): "DIR (P X):",
-                     "(L/R) SHIFT", "(A/D) SHIFT", "(U/D) SHIFT"
+                     "(L/R) SHIFT", "(A/D) SHIFT", "(U/D) SHIFT",
+                     "(U/D) CORR"  [ruta Y de COMP CORR]
+  recordGreenArmed   gate de filas verdes: true solo desde que se responde
+                     N o Y con COMP CORR en pantalla hasta un ON (no persiste)
+  recordLastResponse ultima respuesta del motor (el prompt que el usuario
+                     tenia en pantalla antes de teclear); base del gate
   recordChannel      BroadcastChannel("hp71-record") entre ventanas
   recordOpen / historyOpen   estado de los modales
 
