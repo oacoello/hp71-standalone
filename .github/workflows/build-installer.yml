@@ -5,7 +5,12 @@ on:
     branches:
       - MEJORA-AUTO
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-installer:
@@ -61,3 +66,17 @@ jobs:
           path: dist/Calculadora_HP71B_Installer.exe
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publicar Release en GitHub
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/Calculadora_HP71B_Installer.exe
+          name: Calculadora HP71B ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            Instalador compilado de la Calculadora HP-71B (Sistema Balístico Santa Bárbara).
+            - Integración directa con el autenticador sb-acceso
+            - Modelo balístico STANAG 4355 y Tablas de Tiro oficiales
+            - Exportación y guardado de Record de Tiro
