@@ -1550,7 +1550,11 @@ std::string BasicEngine::execute(const std::string& input)
     return out.str();
 };
 
-auto computeAngleTFromDir = [&](double dir_mils) -> double
+// Angulo T CON SIGNO: positivo si la direccion del observador (dir_mils)
+// queda a la derecha de la linea de tiro (GT), negativo si queda a la
+// izquierda. Rango (-3200, 3200]. El signo es imprescindible para rotar
+// bien las correcciones L/R y A/D del marco del observador al de tiro.
+auto computeSignedAngleTFromDir = [&](double dir_mils) -> double
 {
     if(guns.empty())
         return 0.0;
@@ -1570,12 +1574,21 @@ auto computeAngleTFromDir = [&](double dir_mils) -> double
 
     gun_target_mils = std::floor((gun_target_mils + 1.5) / 2.0) * 2.0;
 
-    double angle_t = std::fabs(dir_mils - gun_target_mils);
+    double delta = dir_mils - gun_target_mils;
 
-    if(angle_t > 3200.0)
-        angle_t = 6400.0 - angle_t;
+    while(delta > 3200.0)
+        delta -= 6400.0;
 
-    return std::round(angle_t);
+    while(delta <= -3200.0)
+        delta += 6400.0;
+
+    return std::round(delta);
+};
+
+// Angulo T absoluto (para mostrar en pantalla: "ANG T (P*): N")
+auto computeAngleTFromDir = [&](double dir_mils) -> double
+{
+    return std::fabs(computeSignedAngleTFromDir(dir_mils));
 };
 
 auto computeBaseAz = [&]() -> double
@@ -1616,10 +1629,13 @@ auto applyObserverCorrection = [&](double obs_lr, double obs_ad, double obs_ud, 
     while(dir_mils >= 6400.0)
         dir_mils -= 6400.0;
 
-    double angle_t = computeAngleTFromDir(dir_mils);
+    double angle_t = computeSignedAngleTFromDir(dir_mils);
     double t_rad = angle_t * (2.0 * PI / 6400.0);
 
-    double real_lr = (obs_lr * std::cos(t_rad)) - (obs_ad * std::sin(t_rad));
+    // Rotacion observador -> linea de tiro (GT), con T CON SIGNO:
+    //   alcance_GT =  ad*cos(T) - lr*sin(T)
+    //   lateral_GT =  lr*cos(T) + ad*sin(T)   (positivo = derecha)
+    double real_lr = (obs_lr * std::cos(t_rad)) + (obs_ad * std::sin(t_rad));
     double real_ad = (obs_ad * std::cos(t_rad)) - (obs_lr * std::sin(t_rad));
 
     shift_angle = computeBaseAz();
