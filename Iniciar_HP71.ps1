@@ -4,7 +4,7 @@
 param(
     [string]$sessionToken = "",
     [string]$deviceId = "",
-    [string]$applicationCode = "calc"
+    [string]$applicationCode = ""
 )
 
 $appDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -22,6 +22,24 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     elseif ($arg -match '^--(applicationcode|application-code|application_code)=(.+)$') { $applicationCode = $Matches[2] }
     elseif ($arg -match '^--(applicationcode|application-code|application_code)$' -and $nextArg) { $applicationCode = $nextArg }
 }
+
+$sessionToken = $sessionToken.Trim('"', "'")
+$deviceId = $deviceId.Trim('"', "'")
+$applicationCode = $applicationCode.Trim('"', "'")
+
+# ===== VALIDAR TOKEN DE SB-ACCESO =====
+if (-not $sessionToken) {
+    Add-Type -AssemblyName System.Windows.Forms
+    [System.Windows.Forms.MessageBox]::Show(
+        "Acceso restringido.`n`nLa Calculadora HP-71B debe ejecutarse exclusivamente desde el autenticador sb-acceso.`n`nPor favor, inicie sesión en sb-acceso y presione el botón 'Abrir' correspondiente a la Calculadora.",
+        "Acceso Restringido - Santa Bárbara",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Stop
+    ) | Out-Null
+    exit 0
+}
+
+if (-not $applicationCode) { $applicationCode = "calc" }
 
 # ===== SPLASH SCREEN =====
 $splashExe = Join-Path $appDir "splash.exe"

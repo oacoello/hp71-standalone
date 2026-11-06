@@ -7,7 +7,7 @@ appDir = fso.GetParentFolderName(WScript.ScriptFullName)
 Dim sessionToken, deviceId, applicationCode
 sessionToken = ""
 deviceId = ""
-applicationCode = "calc"
+applicationCode = ""
 
 Dim i, arg, nextArg, argLower
 For i = 0 To WScript.Arguments.Count - 1
@@ -44,6 +44,21 @@ For i = 0 To WScript.Arguments.Count - 1
         If nextArg <> "" Then applicationCode = nextArg
     End If
 Next
+
+sessionToken = Trim(Replace(sessionToken, """", ""))
+deviceId = Trim(Replace(deviceId, """", ""))
+applicationCode = Trim(Replace(applicationCode, """", ""))
+
+' ===== VALIDAR TOKEN DE SB-ACCESO =====
+If sessionToken = "" Then
+    MsgBox "Acceso restringido." & vbCrLf & vbCrLf & _
+           "La Calculadora HP-71B debe ejecutarse exclusivamente desde el autenticador sb-acceso." & vbCrLf & vbCrLf & _
+           "Por favor, inicie sesión en sb-acceso y presione el botón 'Abrir' correspondiente a la Calculadora.", _
+           vbCritical, "Acceso Restringido - Santa Bárbara"
+    WScript.Quit 0
+End If
+
+If applicationCode = "" Then applicationCode = "calc"
 
 ' ===== INSTANT SPLASH SCREEN =====
 Dim splashExe, splashPs, splashImg

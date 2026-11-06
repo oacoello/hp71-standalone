@@ -1687,54 +1687,50 @@ restoreRecordFromServer()
         }, 350);
     }
 
-    // 1. Si no hay token ni código de aplicación -> bloquear
-    if(!token && !params.get('applicationCode') && !params.get('application-code')){
-        showBlocked('No se recibió token de sesión. Debe iniciar la Calculadora desde el autenticador sb-acceso.');
+    // 1. Token obligatorio: Si no hay token de sesión -> BLOQUEAR INMEDIATAMENTE
+    if(!token || !token.trim()){
+        showBlocked('No se recibió token de sesión. Abra la aplicación desde el botón Abrir en el autenticador sb-acceso.');
         return;
     }
 
-    // 2. Si hay token, validar contra el daemon local cdt-auth (sb-acceso) en puerto 3001
-    if(token){
-        var authEndpoint = 'http://localhost:3001/auth/validate';
-        var controller = null;
-        var timeoutId = null;
-        if(typeof AbortController !== 'undefined'){
-            controller = new AbortController();
-            timeoutId = setTimeout(function(){ controller.abort(); }, 2500);
-        }
-
-        fetch(authEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller ? controller.signal : undefined,
-            body: JSON.stringify({
-                sessionToken: token,
-                deviceId: deviceId,
-                application: appCode,
-                requiredPermissions: ['canUseCalculator']
-            })
-        })
-        .then(function(r){ return r.json(); })
-        .then(function(data){
-            if(timeoutId) clearTimeout(timeoutId);
-            if(data && (data.valid || data.success)){
-                showValid(data);
-            } else if(data && data.valid === false){
-                showBlocked(data.message || 'Sesión inválida o sin permisos para usar la Calculadora.');
-            } else {
-                showValid(data);
-            }
-        })
-        .catch(function(err){
-            if(timeoutId) clearTimeout(timeoutId);
-            // Si el servicio en puerto 3001 no responde (operación offline / en campaña),
-            // se valida que el token fue suministrado legítimamente por sb-acceso.
-            console.warn('Servicio sb-acceso (puerto 3001) no responde, permitiendo acceso por token de lanzamiento:', err);
-            showValid({ sessionToken: token, offline: true });
-        });
-    } else {
-        showValid({ applicationCode: appCode });
+    // 2. Validar token contra daemon sb-acceso (puerto 3001)
+    var authEndpoint = 'http://localhost:3001/auth/validate';
+    var controller = null;
+    var timeoutId = null;
+    if(typeof AbortController !== 'undefined'){
+        controller = new AbortController();
+        timeoutId = setTimeout(function(){ controller.abort(); }, 3000);
     }
+
+    fetch(authEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({
+            sessionToken: token.trim(),
+            deviceId: deviceId,
+            application: appCode || 'calc',
+            requiredPermissions: ['canUseCalculator']
+        })
+    })
+    .then(function(r){
+        if(timeoutId) clearTimeout(timeoutId);
+        if(!r.ok){
+            throw new Error('HTTP ' + r.status);
+        }
+        return r.json();
+    })
+    .then(function(data){
+        if(data && (data.valid === true || data.success === true)){
+            showValid(data);
+        } else {
+            showBlocked((data && data.message) ? data.message : 'Sesión inválida o sin permisos para usar la Calculadora.');
+        }
+    })
+    .catch(function(err){
+        if(timeoutId) clearTimeout(timeoutId);
+        showBlocked('No se pudo conectar con el autenticador sb-acceso (puerto 3001). Asegúrese de que sb-acceso esté abierto y vuelva a presionar Abrir.');
+    });
 })();
 </script>
 

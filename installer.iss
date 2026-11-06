@@ -54,8 +54,7 @@ Source: "tables\*"; DestDir: "{app}\tables"; Flags: ignoreversion recursesubdirs
 Name: "{autoprograms}\Calculadora HP71B"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\Iniciar_HP71.vbs"""; IconFilename: "{app}\icon.ico"
 Name: "{autodesktop}\Calculadora HP71B"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\Iniciar_HP71.vbs"""; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
 
-[Run]
-Filename: "{sys}\wscript.exe"; Parameters: """{app}\Iniciar_HP71.vbs"""; Description: "{cm:LaunchProgram,Calculadora HP71B}"; Flags: nowait postinstall skipifsilent
+; El lanzamiento se realiza exclusivamente desde el autenticador sb-acceso (sin ejecucion automatica post-instalacion)
 
 [UninstallDelete]
 Type: files; Name: "{app}\record.json"
