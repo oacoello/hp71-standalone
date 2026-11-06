@@ -12,6 +12,8 @@ Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
                      PZA# usa basePieceNumber (pieza base) via f.value
   distance           Alcance (DIST)  [PRIMER CALCULO]   -> hoja: "ALCANCE"
   charge             Carga (CHG)     [PRIMER CALCULO]   -> hoja: "LOT. C"
+                     numero (105mm: 6) o string con sufijo
+                     (155mm: "6W", "3G") - se muestra tal cual
   tof                Tiempo de vuelo (TOF)              -> hoja: "TI."
                      (ultimo, NO se congela)
   deflection         Desvio (DEF)     [PRIMER CALCULO]   -> hoja: "DF. Disp"
@@ -85,6 +87,9 @@ Si no hay correccion, la casilla queda vacia.
   distance           /\bDIST\s+([^\s]+)/i
   deflection         /\bDEF\s+([^\s]+)/i
   charge             /\bCHG\s+([^\s]+)/i
+                     155mm: token con sufijo ("6W","3G") se conserva
+                     como string; si es solo numero va a number;
+                     fmtRecord() lo pinta tal cual (no redondea)
   qe                 /\bQE\s+([^\s]+)/i
   tof                /\bTOF\s+([^\s]+)/i
   angleT             /\bANG\s+T(?:\s+\(P\*\):)?\s*([^\s]+)/i
@@ -107,6 +112,7 @@ Azules (RECORD_FIELDS):
   PZA#        <- basePieceNumber (pieza base, via f.value)
   ALCANCE     <- distance  [congelado: 1er calculo, antes de correcciones]
   LOT. C      <- charge    [congelado: 1er calculo]
+                     (155mm puede venir "6W" - string, se pinta tal cual)
   DF.Disp     <- deflection[congelado: 1er calculo]
   Q.E         <- qe        [congelado: 1er calculo]
   casilla

@@ -914,7 +914,12 @@ function parseRecordFromDisplay(text, fallbackPiece){
         pieceNumber: piece ? piece.number : undefined,
         distance: cleanNumber((source.match(/\bDIST\s+([^\s]+)/i) || [])[1]),
         deflection: cleanNumber((source.match(/\bDEF\s+([^\s]+)/i) || [])[1]),
-        charge: cleanNumber((source.match(/\bCHG\s+([^\s]+)/i) || [])[1]),
+        // carga 155mm viene con sufijo (6W, 3G...): se conserva el token; si es solo numero, va a numero
+        charge: (function(t){
+            if(!t) return undefined
+            if(/^\d+[A-Za-z]?$/.test(t)) return /[A-Za-z]/.test(t) ? t.toUpperCase() : Number(t)
+            return cleanNumber(t)
+        })((source.match(/\bCHG\s+([^\s]+)/i) || [])[1]),
         qe: cleanNumber((source.match(/\bQE\s+([^\s]+)/i) || [])[1]),
         tof: cleanNumber((source.match(/\bTOF\s+([^\s]+)/i) || [])[1]),
         angleT: cleanNumber((text.match(/\bANG\s+T(?:\s+\(P\*\):)?\s*([^\s]+)/i) || [])[1]),
@@ -1173,14 +1178,17 @@ function saveRecord(){
 // ALCANCE/LOT.C/DF.Disp/Q.E = primer calculo (antes de correcciones, ver
 // updateRecordFromResponse). PZA# = pieza base. ANG T va en la casilla del
 // simbolo + T (junto a MENSAJE AL OBSERVADOR).
+// tops = linea de la etiqueta impresa de cada celda (valores "en linea" y
+// sin cruzar el borde inferior): fila PZA/ALCANCE cy310 -> 25.14%,
+// fila C/TI/DF/QE cy336 -> 28.59% (center = 120.7 + top% * 7.53)
 var RECORD_FIELDS = [
     { key: "targetNumber",       left: "53.3%", top: "6.4%",  width: "8%" },
-    { key: "pieceNumber",        left: "33%",   top: "26.6%", width: "4.5%", value: function(){ return basePieceNumber } },
-    { key: "distance",           left: "52%",   top: "26.6%", width: "9%" },
-    { key: "charge",             left: "39.2%", top: "30%",   width: "3.8%" },
-    { key: "tof",                left: "65.2%", top: "30%",   width: "6.2%" },
-    { key: "deflection",         left: "76.5%", top: "30%",   width: "7.5%" },
-    { key: "qe",                 left: "84%",   top: "30%",   width: "6.5%" },
+    { key: "pieceNumber",        left: "33%",   top: "25.14%", width: "4.5%", value: function(){ return basePieceNumber } },
+    { key: "distance",           left: "52%",   top: "25.14%", width: "9%" },
+    { key: "charge",             left: "39.2%", top: "28.59%", width: "3.8%" },
+    { key: "tof",                left: "65.2%", top: "28.59%", width: "6.2%" },
+    { key: "deflection",         left: "76.5%", top: "28.59%", width: "7.5%" },
+    { key: "qe",                 left: "84%",   top: "28.59%", width: "6.5%" },
     { key: "angleT",             left: "32.18%", top: "31.5%", width: "7.5%" }
 ]
 
@@ -1201,6 +1209,8 @@ var RECORD_ROW_FIELDS = [
 
 function fmtRecord(value){
     if(value === undefined || value === null || value === 0) return ""
+    // carga con sufijo alfabetico ("6W", "3G") se muestra tal cual
+    if(typeof value === "string") return value
     return String(Math.round(value * 10) / 10)
 }
 
@@ -1237,7 +1247,8 @@ function renderRecord(){
     })
 
     recordRows.slice(0, 7).forEach(function(row, rowIndex){
-        var top = (42.95 + rowIndex * 2.252) + "%"
+        // 42.14% = centro de la 1a fila verde (cy438); paso 2.252% ~ 17px
+        var top = (42.14 + rowIndex * 2.252) + "%"
         RECORD_ROW_FIELDS.forEach(function(f){
             var val = (f.fmt || fmtRecord)(row[f.key])
             html += '<span class="rv-row" style="left:' + f.left + ";top:" + top + ";width:" + f.width +
