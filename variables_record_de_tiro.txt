@@ -23,11 +23,22 @@ Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
                      OBSERVADOR" (left 32.18% top 31.5%)
   targetEast         Este del blanco (TGT)              -> hoja: linea
   targetNorth        Norte del blanco (TGT)               "COORDENADAS."
-                     Se capturan del bloque "TGT DATA:
-                     EAST: x / NORTH: y / ALT: z" que
-                     imprime el flujo REG (FM2 al entrar
-                     el KNPT). Se pintan como
-                     "E <x>   N <y>" (left 32.5% top 8.55%)
+  targetAlt          Altitud del blanco (TGT)             (E / N / ALT)
+                     Fuentes: bloque "TGT DATA:
+                     EAST: x / NORTH: y / ALT: z" del
+                     flujo REG y, ademas, los prompts del
+                     menu 3 (MAIN -> 3): lo que el usuario
+                     teclea en "TGT E (P *):", "TGT N
+                     (P *):" y "TGT ALT (P *):" (el valor
+                     impreso en el prompt es el viejo).
+                     Se pintan como "E <x>   N <y>   ALT <z>"
+                     (left 32.5% top 8.55%)
+  targetName         Indicador del blanco (ej. "AA1000")
+                     -> hoja: casilla "Blanco" (sustituye
+                     al KNPT; si no hay indicador se muestra
+                     el numero). Fuentes: "TGT:" del menu 3
+                     (lo que teclea el usuario) y la linea
+                     "TGT <ind> / KNPT <n> STORED".
   observerDirection  DIR (P X)                          -> correccion DIR
   correctionLR       correccion L/R SHIFT               -> ej: -200 = L200
   correctionAD       correccion A/D SHIFT               -> ej:  -50 = D50
