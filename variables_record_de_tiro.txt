@@ -51,6 +51,13 @@ Al crear cada fila se copian las correcciones vigentes de recordData:
   row.ud  = recordData.correctionUD        (U/D)
 Si no hay correccion, la casilla queda vacia.
 
+POR RONDA: al responder N o Y en COMP CORR se limpian correctionLR,
+correctionAD y correctionUD en recordData (no se arrastran de la ronda
+anterior). Asi cada fila verde muestra SOLO las correcciones de SU ronda
+(ej: ronda 1 con R200; ronda 2 solo A100 -> la fila 2 lleva solo A100).
+El motor NO cambia: acumula internamente shift_lr/shift_ad/shift_ud
+(correcciones sucesivas acumulativas, comportamiento previo del motor).
+
 TIMING (gate verde - recordGreenArmed):
   Las filas verdes son las CORRECCIONES y solo se crean DESPUES de responder
   N o Y en el menu COMP CORR (cada ronda de correcciones en su fila).

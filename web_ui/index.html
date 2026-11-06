@@ -1046,6 +1046,12 @@ function updateRecordFromResponse(cmd, text){
     if((upperCmd === "N" || upperCmd === "Y") &&
        recordLastResponse.indexOf("COMP CORR") >= 0){
         recordGreenArmed = true
+        // Nueva ronda de correcciones: la fila verde registra SOLO lo corregido
+        // en esta ronda (no se arrastran L/R, A/D ni U/D de la anterior).
+        // El motor sigue acumulando su solucion internamente (eso no cambia).
+        delete recordData.correctionLR
+        delete recordData.correctionAD
+        delete recordData.correctionUD
     }
 
     var pendingField = (cleanCmd !== "P" && cleanCmd !== "*") ? recordInputField : null
