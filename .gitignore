@@ -53,3 +53,6 @@ REPORTES DE MISION/
 # Local runtime/auth data
 auth/users.json
 assets/
+
+# Engram AI agent memory
+.engram/

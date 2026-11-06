@@ -1,0 +1,218 @@
+========================================================================
+VARIABLES DEL RECORD DE TIRO  (web_ui/index.html)
+========================================================================
+
+------------------------------------------------------------------------
+1. recordData - Datos globales (valores AZULES de la hoja)
+------------------------------------------------------------------------
+Se actualiza con cada respuesta de la calculadora (updateRecordFromResponse).
+
+  targetNumber       Numero de blanco (Blanco)          -> hoja: "Blanco"
+  pieceNumber        Numero de pieza (interno)          -> NO se pinta;
+                     PZA# usa basePieceNumber (pieza base) via f.value
+  distance           Alcance (DIST)  [PRIMER CALCULO]   -> hoja: "ALCANCE"
+  charge             Carga (CHG)     [PRIMER CALCULO]   -> hoja: "LOT. C"
+                     numero (105mm: 6) o string con sufijo
+                     (155mm: "6W", "3G") - se muestra tal cual
+  tof                Tiempo de vuelo (TOF)              -> hoja: "TI."
+                     (ultimo, NO se congela)
+  deflection         Desvio (DEF)     [PRIMER CALCULO]   -> hoja: "DF. Disp"
+  qe                 Elevacion (QE)   [PRIMER CALCULO]   -> hoja: "Q.E"
+  angleT             Angulo de tiro (ANG T, ultimo)     -> hoja: casilla
+                     simbolo+T junto a "MENSAJE AL
+                     OBSERVADOR" (left 32.18% top 31.5%)
+  targetEast         Este del blanco (TGT)              -> hoja: linea
+  targetNorth        Norte del blanco (TGT)               "COORDENADAS."
+  targetAlt          Altitud del blanco (TGT)             (E / N / ALT)
+                     Fuentes: bloque "TGT DATA:
+                     EAST: x / NORTH: y / ALT: z" del
+                     flujo REG y, ademas, los prompts del
+                     menu 3 (MAIN -> 3): lo que el usuario
+                     teclea en "TGT E (P *):", "TGT N
+                     (P *):" y "TGT ALT (P *):" (el valor
+                     impreso en el prompt es el viejo).
+                     Se pintan como "E <x>   N <y>   ALT <z>"
+                     (left 25.8% top 8.8%, centrado sobre la
+                     linea COORDENADAS.; la linea va de
+                     x=145 a x=350 en la hoja)
+  targetName         Indicador del blanco (ej. "AA1000")
+                     -> hoja: casilla "Blanco" (sustituye
+                     al KNPT; si no hay indicador se muestra
+                     el numero). Fuentes: "TGT:" del menu 3
+                     (lo que teclea el usuario) y la linea
+                     "TGT <ind> / KNPT <n> STORED".
+  observerDirection  DIR (P X)                          -> correccion DIR
+  correctionLR       correccion L/R SHIFT               -> ej: -200 = L200
+  correctionAD       correccion A/D SHIFT               -> ej:  -50 = D50
+  correctionUD       correccion U/D SHIFT               -> ej:   10 = U10
+                     (capturada tambien en la ruta Y: prompt "(U/D) CORR (*)";
+                      "X" ahi cancela y NO cambia el valor)
+
+  CONGELADO (primer calculo antes de correcciones):
+    distance, charge, deflection, qe se guardan en la PRIMERA respuesta
+    que les da valor y ya no se sobreescriben (hasta "ON" que limpia
+    todo). Asi ALCANCE muestra el alcance previo a las correcciones y
+    C / DF.Disp / Q.E los del primer calculo.
+
+------------------------------------------------------------------------
+2. recordRows - Filas VERDES de la hoja (maximo 7, se recortan)
+------------------------------------------------------------------------
+Una fila por RONDA de correcciones (solo tras N/Y en COMP CORR): se
+parsea UNA SOLA pieza, la BASE, que es la que la pantalla muestra como
+calculo (parsePieces fija currentPiece en la base; mismo criterio que
+los campos azules). Asi 1 correccion = 1 fila (no una por pieza de la
+bateria). Se deduplica con sameRecordRow() (P/Y/N que reemiten la misma
+solucion no duplican) y se guarda en recordRows[].
+
+Al crear cada fila se copian las correcciones vigentes de recordData:
+  row.dir = recordData.observerDirection   (DIR)
+  row.lr  = recordData.correctionLR        (L/R)
+  row.ad  = recordData.correctionAD        (A/D)
+  row.ud  = recordData.correctionUD        (U/D)
+Si no hay correccion, la casilla queda vacia.
+
+POR RONDA: al responder N o Y en COMP CORR se limpian correctionLR,
+correctionAD y correctionUD en recordData (no se arrastran de la ronda
+anterior). Asi cada fila verde muestra SOLO las correcciones de SU ronda
+(ej: ronda 1 con R200; ronda 2 solo A100 -> la fila 2 lleva solo A100).
+El motor NO cambia: acumula internamente shift_lr/shift_ad/shift_ud
+(correcciones sucesivas acumulativas, comportamiento previo del motor).
+
+TIMING (gate verde - recordGreenArmed):
+  Las filas verdes son las CORRECCIONES y solo se crean DESPUES de responder
+  N o Y en el menu COMP CORR (cada ronda de correcciones en su fila).
+  - updateRecordFromResponse(): si el cmd es "N"/"Y" y la respuesta anterior
+    (recordLastResponse) contiene "COMP CORR" -> recordGreenArmed = true.
+  - addRecordRowsFromResponse(): si !recordGreenArmed no crea ninguna fila
+    (la solucion inicial NO genera filas verdes).
+  - cmd "ON": resetea recordGreenArmed = false y recordLastResponse = "".
+  La bandera no se persiste: si se recarga la pagina hay que volver a pasar
+  por N/Y en COMP CORR (que siempre abre cada ronda) antes de la siguiente fila.
+  El motor (basic_engine.cpp) NO cambia: el gating es solo en la UI.
+
+  id                 interno: Date.now() + numero + random
+  targetNumber       numero de blanco de esa fila
+  pieceNumber        numero de pieza de esa fila
+  charge             CHG de esa fila                    -> columna MA. G.
+  tof                TOF de esa fila                    -> columna TI.
+  deflection         DEF de esa fila                    -> columna DEF. DISP
+  qe                 QE de esa fila                     -> columna QE
+
+  RECORD_ROW_KEYS = ["dir","lr","ad","ud","targetNumber","pieceNumber",
+                     "distance","charge","tof","deflection","qe"]
+
+------------------------------------------------------------------------
+3. Variables de control
+------------------------------------------------------------------------
+  basePieceNumber    pieza base (default 1); se ajusta con BASE PIECE
+                     (updateBasePieceFromText / captureBasePieceBeforeSend)
+  recordInputField   campo pendiente de entrada del usuario
+                     (observerDirection | correctionLR | correctionAD |
+                     correctionUD | null) - detectado con
+                     getRecordInputField(): "DIR (P X):",
+                     "(L/R) SHIFT", "(A/D) SHIFT", "(U/D) SHIFT",
+                     "(U/D) CORR"  [ruta Y de COMP CORR]
+  recordGreenArmed   gate de filas verdes: true solo desde que se responde
+                     N o Y con COMP CORR en pantalla hasta un ON
+                     (o un DATA CLEARED); no persiste
+  recordLastResponse ultima respuesta del motor (el prompt que el usuario
+                     tenia en pantalla antes de teclear); base del gate
+  recordChannel      BroadcastChannel("hp71-record") entre ventanas
+  recordOpen / historyOpen   estado de los modales
+
+  LIMPIEZA DEL RECORD: el boton ON y la respuesta "DATA CLEARED"
+  (MAIN -> X, resetData() del motor) limpian recordData y recordRows y
+  hacen pushRecord() -> record.json queda {"data":{},"rows":[]}.
+
+------------------------------------------------------------------------
+4. Persistencia (servidor - hp71_server/main.cpp)
+------------------------------------------------------------------------
+  POST /record   body JSON: { "data": { ...recordData },
+                              "rows": [ ...recordRows ] }
+  GET  /record   devuelve ese JSON
+  Archivo:       <exeDir>/hp71-logs/record.json
+  Limpio:        {"data":{},"rows":[]}
+  Sesiones:      <exeDir>/hp71-logs/*.log  (NO se borran)
+
+------------------------------------------------------------------------
+5. Origen de cada valor (parseo de la pantalla)
+------------------------------------------------------------------------
+  targetNumber       /\b(?:KNPT|BLANCO|TGT)\s*...:\s*(\d+)/i
+  pieceNumber        numero de pieza del bloque (splitPiecesRaw)
+  distance           /\bDIST\s+([^\s]+)/i
+  deflection         /\bDEF\s+([^\s]+)/i
+  charge             /\bCHG\s+([^\s]+)/i
+                     155mm: token con sufijo ("6W","3G") se conserva
+                     como string; si es solo numero va a number;
+                     fmtRecord() lo pinta tal cual (no redondea)
+  qe                 /\bQE\s+([^\s]+)/i
+  tof                /\bTOF\s+([^\s]+)/i
+  angleT             /\bANG\s+T(?:\s+\(P\*\):)?\s*([^\s]+)/i
+  observerDirection  /\bDIR(?:\s+\(P\s+X\):)?\s*([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd) numerico)
+  correctionLR       /\bLR\s+SHIFT\s+([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd,"R","L"))
+                     negativo -> L, positivo -> R
+  correctionAD       /\bAD\s+SHIFT\s+([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd,"A","D"))
+                     negativo -> D, positivo -> A
+  correctionUD       /\bUD\s+SHIFT\s+([^\s]+)/i
+                     (entrada: parseDirectionalNumber(cmd,"U","D"))
+                     negativo -> D, positivo -> U
+
+------------------------------------------------------------------------
+6. MAPEO AZULES + VERDES (implementado)
+------------------------------------------------------------------------
+Azules (RECORD_FIELDS):
+  PZA#        <- basePieceNumber (pieza base, via f.value)
+  ALCANCE     <- distance  [congelado: 1er calculo, antes de correcciones]
+  LOT. C      <- charge    [congelado: 1er calculo]
+                     (155mm puede venir "6W" - string, se pinta tal cual)
+  DF.Disp     <- deflection[congelado: 1er calculo]
+  Q.E         <- qe        [congelado: 1er calculo]
+  casilla
+  simbolo+T   <- angleT (ultimo ANG T del menu de correcciones)
+  TI.         <- tof (ultimo, NO se congela)
+  Blanco      <- targetName (indicador TGT, ej. AA1000); si no hay, targetNumber
+
+Correcciones -> fila verde (formato letra, ej. L200 no -200):
+  DIR  -> columna "AZ. MA G, Esp"
+  L/R  -> columna "DESV."
+  A/D  -> columna "ALC."
+  U/D  -> columna "ALT ESP"
+Resultados en sus columnas de esa fila:
+  tof        -> "TI."
+  deflection -> "DEF. DISP"
+  qe         -> "QE"
+  (así sucesivamente cada que se hagan correcciones)
+Casillas sin correccion quedan vacias.
+
+========================================================================
+PNG (boton Guardar) - OPERATIVO
+------------------------------------------------------------------------
+La hoja es un PDF convertido a HTML con pdf2htmlEX. buildRecordPng():
+  - serializa el contenido del iframe y lo rasteriza con un SVG
+    foreignObject (Chromium);
+  - quita los <style> que inyecta la app (solo-documento-sin-fondo,
+    cdt-record-fit);
+  - desactiva animaciones: el .pc arranca en opacity:0 por fadein ->
+    si no, la imagen sale en blanco;
+  - fija la pagina a 792x612 sin margenes ni patron de fondo;
+  - dibuja la hoja escalada al lienzo (2x) y ENCIMA pinta los valores
+    (.rv azules y .rv-row verdes) con canvas fillText;
+  - devuelve dataURL PNG y saveRecord() lo guarda:
+      * Chrome/Edge: dialogo nativo "Guardar como" (showSaveFilePicker)
+        para elegir carpeta y nombre; si el usuario cancela no guarda nada.
+      * Si la API no existe (Firefox/Safari) o falla: descarga clasica al
+        directorio por defecto del navegador.
+      * Nombre sugerido: record-de-tiro-<fecha>.png
+
+========================================================================
+Fichero: web_ui/index.html
+  RECORD_FIELDS      ~linea 1166  (campos azules)
+  RECORD_ROW_FIELDS  ~linea 1183  (columnas verdes)
+  renderRecord()     ~linea 1224
+  buildRecordPng()   (boton Guardar - ver nota PNG arriba)
+  updateRecordFromResponse() ~linea 1013
+  Congelado azul: frozenBlueKeys ~linea 1042
+========================================================================

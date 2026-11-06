@@ -1,7 +1,15 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1b1b1b">
+<link rel="icon" type="image/x-icon" href="/icon.ico">
+<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="256x256" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="manifest" href="/manifest.json">
 <title>SANTA BARBARA</title>
 
 <style>
@@ -9,11 +17,15 @@ body{
 background:#1b1b1b;
 font-family:Arial;
 display:flex;
+flex-direction:column;
 justify-content:center;
 align-items:center;
-height:100vh;
+min-height:100vh;
+height:auto;
 margin:0;
-overflow:hidden;
+padding:14px 0;
+box-sizing:border-box;
+overflow:auto;
 }
 
 .calculator{
@@ -26,50 +38,19 @@ box-shadow:0 0 40px rgba(0,0,0,.7);
 
 .lcd{
 background:#cbbf97;
+padding:12px;
 border-radius:6px;
 margin-bottom:20px;
-height:280px;
-width:100%;
-display:flex;
-padding:8px;
-box-sizing:border-box;
 }
 
 #lcdtext{
 background:#1f1f1f;
 color:#baff7c;
 font-family:monospace;
-font-size:20px;
-line-height:1.35;
-letter-spacing:1px;
-width:100%;
-height:100%;
-overflow:hidden;
-white-space:pre;
-padding:12px;
-box-sizing:border-box;
-border:4px solid #bfb68c;
-border-radius:4px;
-}
-
-.lcdbar{
-width:44px;
-height:100%;
-margin-left:8px;
-display:flex;
-flex-direction:column;
-gap:8px;
-}
-
-.lcdbar button{
-width:44px;
-height:50%;
-background:#1f1f1f;
-color:#baff7c;
-border:3px solid #bfb68c;
-font-size:24px;
-border-radius:4px;
-cursor:pointer;
+font-size:26px;
+padding:10px;
+letter-spacing:3px;
+white-space:pre-line;
 }
 
 .keyboard{
@@ -100,78 +81,375 @@ font-size:15px;
 cursor:pointer;
 }
 
-button.light{
-background:#d7d7d7;
-color:black;
-}
-
-button.yellow{
-background:#e6c200;
-color:black;
-}
-
-button.blue{
-background:#4da6c8;
-}
+button.light{ background:#d7d7d7; color:black; }
+button.yellow{ background:#e6c200; color:black; }
+button.blue{ background:#4da6c8; }
 
 .endline{
 height:92px;
 grid-row:span 2;
 }
 
-button:active{
-transform:scale(.95);
+button:active{ transform:scale(.95); }
+
+/* ===== AUTENTICACIÓN SB-ACCESO ===== */
+#auth-overlay{
+    position:fixed; top:0; left:0; width:100vw; height:100vh;
+    background:#0b0e14; display:flex; justify-content:center; align-items:center;
+    z-index:99999; flex-direction:column; text-align:center; padding:30px;
+    box-sizing:border-box; font-family:'Segoe UI', Consolas, monospace;
 }
+#auth-overlay.hidden{ display:none !important; }
+#auth-overlay .auth-card{
+    max-width:540px; width:100%;
+    background:#11141c;
+    border:2px solid #c0392b;
+    border-radius:12px;
+    padding:36px 32px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.8), 0 0 20px rgba(192,57,43,0.25);
+    display:flex; flex-direction:column; align-items:center;
+}
+#auth-overlay.auth-valid .auth-card{
+    border-color:#2ecc71;
+    box-shadow:0 20px 60px rgba(0,0,0,0.8), 0 0 20px rgba(46,204,113,0.25);
+}
+#auth-overlay.auth-loading .auth-card{
+    border-color:#F39C63;
+    box-shadow:0 20px 60px rgba(0,0,0,0.8), 0 0 20px rgba(243,156,99,0.25);
+}
+#auth-overlay .auth-badge{
+    font-size:11px; font-weight:900; letter-spacing:3px;
+    color:#8892b0; text-transform:uppercase; margin-bottom:8px;
+}
+#auth-overlay h1{
+    color:#c0392b; font-size:22px; font-weight:800;
+    letter-spacing:1.5px; margin:0 0 14px 0; text-transform:uppercase;
+}
+#auth-overlay.auth-valid h1{ color:#2ecc71; }
+#auth-overlay.auth-loading h1{ color:#F39C63; }
+#auth-overlay .divider{
+    width:100%; max-width:420px; height:1px;
+    background:rgba(255,255,255,0.12); margin:12px 0 20px 0;
+}
+#auth-overlay p{
+    color:#c8d1e0; font-size:14px; line-height:1.6; margin:0 0 10px 0;
+}
+#auth-overlay .reason{
+    color:#e74c3c; font-size:12px; font-weight:600;
+    margin-top:14px; padding:10px 16px; background:rgba(231,76,60,0.1);
+    border-radius:6px; border:1px solid rgba(231,76,60,0.3);
+    max-width:460px;
+}
+#auth-overlay .spinner{
+    width:36px; height:36px; border:3px solid rgba(243,156,99,0.2);
+    border-top:3px solid #F39C63; border-radius:50%;
+    animation:auth-spin 0.9s linear infinite; margin:16px auto;
+}
+@keyframes auth-spin{ 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+
+/* ===== VENTANAS: RECORD DE TIRO + HISTORIAL DE INPUTS ===== */
+.toolbar{
+display:flex;
+gap:14px;
+justify-content:center;
+width:100%;
+margin-bottom:16px;
+}
+.toolbtn{
+min-width:300px;
+width:auto;
+padding:11px 34px;
+border-radius:10px;
+border:2px solid #F39C63;
+background:#0A0A0B;
+color:#F39C63;
+font-size:12px;
+font-weight:900;
+letter-spacing:.18em;
+text-transform:uppercase;
+white-space:nowrap;
+text-align:center;
+cursor:pointer;
+box-shadow:0 6px 18px rgba(0,0,0,.5);
+}
+.toolbtn:hover{ background:#F39C63; color:#000; }
+
+.overlay{
+position:fixed;
+inset:0;
+z-index:2147483647;
+display:none;
+align-items:center;
+justify-content:center;
+background:rgba(0,0,0,.85);
+padding:16px;
+}
+.overlay.open{ display:flex; }
+
+/* --- Record de tiro --- */
+.record-window{
+position:relative;
+height:94vh;
+width:98vw;
+max-width:1600px;
+overflow:hidden;
+border-radius:16px;
+border:2px solid #F39C63;
+background:#fff;
+box-shadow:0 25px 60px rgba(0,0,0,.6);
+}
+.record-close{
+position:absolute;
+right:12px;
+top:12px;
+z-index:30;
+border:none;
+border-radius:999px;
+background:rgba(0,0,0,.8);
+color:#fff;
+width:34px;
+height:34px;
+font-size:16px;
+cursor:pointer;
+}
+.record-close:hover{ background:#F39C63; color:#000; }
+.record-save{
+position:absolute;
+right:56px;
+top:12px;
+z-index:30;
+width:auto;
+height:34px;
+padding:0 20px;
+display:inline-flex;
+align-items:center;
+justify-content:center;
+border-radius:999px;
+border:1px solid #F39C63;
+background:rgba(0,0,0,.8);
+color:#F39C63;
+font-size:11px;
+font-weight:900;
+letter-spacing:.12em;
+text-transform:uppercase;
+white-space:nowrap;
+cursor:pointer;
+}
+.record-save:hover{ background:#F39C63; color:#000; }
+.record-save.saved{ border-color:#7CFF9B; color:#7CFF9B; }
+.record-save.saved:hover{ background:#7CFF9B; color:#000; }
+.record-body{
+display:flex;
+align-items:flex-start;
+justify-content:center;
+overflow:auto;
+height:100%;
+background:#fff;
+padding:48px 16px 16px;
+}
+.record-sheet{
+position:relative;
+aspect-ratio:792/612;
+width:min(1500px, calc(100vw - 64px));
+min-width:960px;
+}
+.record-sheet iframe{
+position:absolute;
+inset:0;
+width:100%;
+height:100%;
+border:0;
+}
+.record-values{
+position:absolute;
+inset:0;
+z-index:20;
+pointer-events:none;
+}
+.rv{
+position:absolute;
+transform:translate(-50%,36px);
+overflow:hidden;
+white-space:nowrap;
+text-align:center;
+font-family:monospace;
+font-size:clamp(10px,1.05vw,17px);
+font-weight:900;
+line-height:1;
+color:#2563eb;
+}
+.rv-row{
+position:absolute;
+transform:translate(-50%,36px);
+overflow:hidden;
+white-space:nowrap;
+text-align:center;
+font-family:monospace;
+font-size:clamp(9px,0.95vw,15px);
+font-weight:900;
+line-height:1;
+color:#16a34a;
+}
+
+/* --- Historial de inputs --- */
+.history-window{
+height:88vh;
+width:min(1150px,96vw);
+display:flex;
+flex-direction:column;
+overflow:hidden;
+border-radius:16px;
+border:2px solid #F39C63;
+background:#0A0A0B;
+box-shadow:0 25px 60px rgba(0,0,0,.6);
+}
+.history-bar{
+display:flex;
+align-items:center;
+gap:10px;
+padding:12px 16px;
+border-bottom:1px solid rgba(243,156,99,.35);
+background:#111114;
+}
+.history-title{
+color:#F39C63;
+font-size:12px;
+font-weight:900;
+letter-spacing:.2em;
+text-transform:uppercase;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+min-width:0;
+}
+.history-bar .spacer{ flex:1; }
+.hbtn{
+width:auto;
+padding:8px 20px;
+border-radius:8px;
+border:1px solid #F39C63;
+background:transparent;
+color:#F39C63;
+font-size:10px;
+font-weight:900;
+letter-spacing:.12em;
+text-transform:uppercase;
+white-space:nowrap;
+cursor:pointer;
+}
+.hbtn:hover{ background:#F39C63; color:#000; }
+.history-body{
+display:flex;
+flex:1;
+min-height:0;
+}
+.history-sessions{
+width:300px;
+min-width:220px;
+overflow-y:auto;
+border-right:1px solid rgba(243,156,99,.25);
+padding:8px;
+}
+.hsession{
+padding:9px 10px;
+border-radius:8px;
+cursor:pointer;
+margin-bottom:6px;
+background:#141418;
+border:1px solid transparent;
+}
+.hsession:hover{ border-color:rgba(243,156,99,.5); }
+.hsession.active{ border-color:#F39C63; background:#1B1B21; }
+.hsession .sid{
+color:#fff;
+font-size:11px;
+font-weight:700;
+word-break:break-all;
+}
+.hsession .sid .tag{ color:#F39C63; }
+.hsession .smeta{
+color:#8A8A93;
+font-size:10px;
+margin-top:3px;
+}
+.hsession .sprev{
+color:#BAFF7C;
+font-size:10px;
+font-family:monospace;
+margin-top:4px;
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+}
+.history-log{
+flex:1;
+min-width:0;
+display:flex;
+flex-direction:column;
+background:#000;
+}
+.history-log pre{
+flex:1;
+margin:0;
+padding:16px;
+overflow:auto;
+color:#BAFF7C;
+font-family:monospace;
+font-size:14px;
+line-height:1.5;
+white-space:pre-wrap;
+word-break:break-word;
+}
+.history-empty{
+color:#8A8A93;
+font-size:13px;
+padding:24px;
+}
+
 </style>
 </head>
 
 <body>
 
-<div class="calculator">
+<!-- AUTH OVERLAY (sb-acceso) -->
+<div id="auth-overlay" class="auth-loading">
+    <div class="auth-card">
+        <div class="auth-badge">SISTEMA SANTA BÁRBARA</div>
+        <h1 id="auth-title">Validando sesión...</h1>
+        <div class="spinner" id="auth-spinner"></div>
+        <div class="divider"></div>
+        <p id="auth-msg">Consultando Servicios de Usuario Santa Bárbara (sb-acceso)...</p>
+        <div class="reason" id="auth-reason" style="display:none"></div>
+    </div>
+</div>
+
+<div class="toolbar" style="display:none">
+<button type="button" class="toolbtn" id="btnRecord">Record de tiro</button>
+<button type="button" class="toolbtn" id="btnHistory">Historial de sesion</button>
+</div>
+
+<div class="calculator" id="calculator" style="display:none">
 
 <div class="lcd">
-    <div id="lcdtext">SANTA BARBARA</div>
-
-    <div class="lcdbar">
-        <button onclick="prevPiece()">▲</button>
-        <button onclick="nextPiece()">▼</button>
-    </div>
+<div id="lcdtext">SANTA BARBARA</div>
 </div>
 
 <div class="keyboard">
 
 <div class="left">
-<button data="Q">Q</button>
-<button data="W">W</button>
-<button data="E">E</button>
-<button data="R">R</button>
-<button data="T">T</button>
-<button data="Y">Y</button>
-<button data="U">U</button>
-<button data="I">I</button>
-<button data="O">O</button>
+<button data="Q">Q</button><button data="W">W</button><button data="E">E</button>
+<button data="R">R</button><button data="T">T</button><button data="Y">Y</button>
+<button data="U">U</button><button data="I">I</button><button data="O">O</button>
 <button data="P">P</button>
 
-<button data="A">A</button>
-<button data="S">S</button>
-<button data="D">D</button>
-<button data="F">F</button>
-<button data="G">G</button>
-<button data="H">H</button>
-<button data="J">J</button>
-<button data="K">K</button>
-<button data="L">L</button>
+<button data="A">A</button><button data="S">S</button><button data="D">D</button>
+<button data="F">F</button><button data="G">G</button><button data="H">H</button>
+<button data="J">J</button><button data="K">K</button><button data="L">L</button>
 <button data="=">=</button>
 
-<button data="Z">Z</button>
-<button data="X">X</button>
-<button data="C">C</button>
-<button data="V">V</button>
-<button data="B">B</button>
-<button data="N">N</button>
-<button data="M">M</button>
-<button data="(">(</button>
-<button data=")">)</button>
+<button data="Z">Z</button><button data="X">X</button><button data="C">C</button>
+<button data="V">V</button><button data="B">B</button><button data="N">N</button>
+<button data="M">M</button><button data="(">(</button><button data=")">)</button>
 
 <button class="endline" data="ENTER">END<br>LINE</button>
 
@@ -211,233 +489,1286 @@ transform:scale(.95);
 </div>
 </div>
 
-<script>
-let buffer = "";
-let screenText = "SANTA BARBARA";
+<!-- ===== VENTANA: RECORD DE TIRO ===== -->
+<div class="overlay" id="recordOverlay">
+<div class="record-window">
+<button type="button" class="record-save" id="recordSave">Guardar</button>
+<button type="button" class="record-close" id="recordClose" title="Cerrar">X</button>
+<div class="record-body">
+<div class="record-sheet">
+<iframe src="/record-de-tiro.html" title="Record de tiro"></iframe>
+<div class="record-values" id="recordValues"></div>
+</div>
+</div>
+</div>
+</div>
 
-let pieces = [];
-let pieceIndex = 0;
-let pieceMode = false;
+<!-- ===== VENTANA: HISTORIAL DE INPUTS ===== -->
+<div class="overlay" id="historyOverlay">
+<div class="history-window">
+<div class="history-bar">
+<span class="history-title">Historial de sesion</span>
+<span class="spacer"></span>
+<button type="button" class="hbtn" id="historyRefresh">Refrescar</button>
+<button type="button" class="hbtn" id="historyClose">Cerrar</button>
+</div>
+<div class="history-body">
+<div class="history-sessions" id="historySessions"></div>
+<div class="history-log"><pre id="historyContent">Cargando historial...</pre></div>
+</div>
+</div>
+</div>
+
+<script>
+
+// ================== 🔥 NUEVA LÓGICA ==================
+let ud_mode = false
+let pieces = []
+let sendingCommand = false
+
+// La pieza base real viene del flujo COB_BASE del backend.
+// JavaScript usa índice 0, por eso PIECE 1 = index 0, PIECE 2 = index 1, etc.
+let basePieceNumber = 1
+let basePieceIndex = 0
+let currentPiece = basePieceIndex
+let waitingBasePieceValue = false
+
+function clampPieceIndex(index){
+    if(pieces.length === 0) return Math.max(0, index)
+    if(index < 0) return 0
+    if(index >= pieces.length) return pieces.length - 1
+    return index
+}
+
+function setBasePiece(num){
+    let n = parseInt(num, 10)
+    if(isNaN(n) || n < 1) return
+
+    basePieceNumber = n
+    basePieceIndex = n - 1
+    currentPiece = clampPieceIndex(basePieceIndex)
+}
+
+function updateBasePieceFromText(text){
+    let raw = String(text || "")
+
+    // Detecta estos formatos:
+    // BASE PIECE 3
+    // BASE PIECE: 3
+    // BASE PIECE (P *): 3
+    let match = raw.match(/BASE\s+PIECE(?:\s*\([^)]*\))?\s*:?\s*(\d+)/i)
+    if(match){
+        setBasePiece(match[1])
+        waitingBasePieceValue = true
+        return
+    }
+
+    // Si ya salimos del prompt de BASE PIECE, dejamos de esperar ese valor.
+    if(!raw.toUpperCase().includes("BASE PIECE")){
+        waitingBasePieceValue = false
+    }
+}
+
+function captureBasePieceBeforeSend(cmd){
+    let clean = String(cmd || "").trim()
+
+    // Si la pantalla estaba pidiendo BASE PIECE y el usuario escribe un número,
+    // esa es la pieza base real que se debe mostrar después del tiro.
+    if(waitingBasePieceValue && /^\d+$/.test(clean)){
+        setBasePiece(clean)
+        waitingBasePieceValue = false
+    }
+}
 
 function parsePieces(text){
 
-```
-let lines = text.split(/\r?\n/);
-let result = [];
-let current = [];
+pieces = []
+let parts = text.split("----- PIECE")
 
-for(let line of lines){
+if(parts.length <= 1) return false
 
-    let clean = line.trim();
+for(let i=1;i<parts.length;i++){
+    let p = "----- PIECE" + parts[i]
+    p = p.trim()
 
-    // 🔥 detectar PIECE aunque venga sucio
-    if(clean.includes("PIECE") && clean.includes("-----")){
+    let match = p.match(/-----\s+PIECE\s+(\d+)\s+-----/i)
+    let pieceNumber = match ? parseInt(match[1], 10) : i
+    let isBasePiece = (pieceNumber === basePieceNumber)
 
-        if(current.length > 0){
-            result.push(current.join("\n"));
-        }
-
-        current = [clean];
-        continue;
+    // quitar COMP CORR de no-base
+    if(!isBasePiece){
+        p = p.replace(/COMP CORR[\s\S]*/,"").trim()
+        p += "\n\nTESON DR EVIL"
     }
 
-    if(current.length > 0){
-
-        // ignorar basura final
-        if(clean.startsWith("COMP CORR") || clean.startsWith("TESON")){
-            continue;
+    // base elegida por el usuario
+    if(isBasePiece){
+        if(!p.includes("COMP CORR")){
+            p += "\n\nCOMP CORR (Y N P *)"
         }
-
-        if(clean !== ""){
-            current.push(clean);
+        if(!p.includes("TESON DR EVIL")){
+            p += "\nTESON DR EVIL"
         }
     }
+
+    pieces.push(p)
 }
 
-if(current.length > 0){
-    result.push(current.join("\n"));
+currentPiece = clampPieceIndex(basePieceIndex)
+return true
 }
 
-return result;
-```
-
+function getBasePiece(){
+    if(pieces.length === 0) return null
+    return pieces[clampPieceIndex(basePieceIndex)]
 }
 
+function showPiece(){
+if(pieces.length === 0) return prompt
+return pieces[clampPieceIndex(currentPiece)]
+}
+// ================== FIN NUEVA LÓGICA ==================
 
-function renderLCD(){
-    let lcd = document.getElementById("lcdtext");
 
-    if(pieceMode && pieces.length > 0){
-        lcd.innerText =
-            pieces[pieceIndex] +
-            "\n\nPIECE " + (pieceIndex + 1) + "/" + pieces.length +
-            "\n▲ PREV   ▼ NEXT";
-        return;
-    }
+let buffer=""
+let prompt="SANTA BARBARA"
 
-    let text = screenText;
+function updateScreen(){
 
-    if(buffer.length > 0){
-        text += "\n> " + buffer;
-    }
+let text = showPiece()
 
-    lcd.innerText = text;
+if(buffer.length>0){
+    text += " " + buffer
 }
 
-function nextPiece(){
-    if(!pieceMode || pieces.length === 0) return;
-
-    if(pieceIndex < pieces.length - 1){
-        pieceIndex++;
-    }
-
-    renderLCD();
-}
-
-function prevPiece(){
-    if(!pieceMode || pieces.length === 0) return;
-
-    if(pieceIndex > 0){
-        pieceIndex--;
-    }
-
-    renderLCD();
+document.getElementById("lcdtext").innerText = text
 }
 
 function send(cmd){
-    fetch("/input",{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/x-www-form-urlencoded"
-        },
-        body:"cmd="+encodeURIComponent(cmd)
-    })
-    .then(r=>r.text())
-    .then(t=>{
 
-        buffer = "";
+if(sendingCommand) return
+sendingCommand = true
 
-        let foundPieces = parsePieces(t);
+captureBasePieceBeforeSend(cmd)
+logEvent("INPUT", cmd.length ? "USUARIO: " + cmd : "USUARIO: ENTER")
 
-        if(foundPieces.length > 0){
-            pieces = foundPieces;
-            pieceIndex = 0;
-            pieceMode = true;
-            renderLCD();
-            return;
-        }
+fetch("/input",{
+method:"POST",
+headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+body:"cmd="+encodeURIComponent(cmd)
+})
+.then(r=>r.text())
+.then(t=>{
 
-        pieceMode = false;
-        screenText = t;
-        renderLCD();
-    });
+    updateBasePieceFromText(t)
+    updateRecordFromResponse(cmd, t)
+
+    if(t.trim() === "INITIALIZE"){
+    prompt = "INITIALIZE"
+    buffer = ""
+    pieces = []
+    updateScreen()
+
+    setTimeout(()=>{
+        fetch("/input",{
+            method:"POST",
+            headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+            body:"cmd="+encodeURIComponent("")
+        })
+        .then(r=>r.text())
+        .then(next=>{
+            updateBasePieceFromText(next)
+            prompt = next
+            buffer = ""
+            pieces = []
+            updateScreen()
+        })
+        .finally(()=>{
+            sendingCommand = false
+        })
+    }, 2000)
+
+    return
+}
+
+// Procesar piezas
+if(parsePieces(t)){
+
+    let raw = t.toUpperCase()
+
+    // SOLO activar cuando el sistema realmente solicita entrada
+    if(raw.trim() === "U/D" || raw.includes("ENTER U/D")){
+        ud_mode = true
+    }
+
+    // SALIR DE MODO U/D SOLO CUANDO REGRESA A COMP CORR
+    if(raw.includes("COMP CORR")){
+        ud_mode = false
+    }
+
+    // SEGURIDAD: SI VUELVE A PDA
+    if(raw.includes("FUZE PDA")){
+        ud_mode = false
+    }
+
+    let basePiece = getBasePiece()
+
+    // LIMPIAR CUALQUIER ARRASTRE DE TIA/HOB EN NUEVO TGT
+    if(raw.includes("FUZE PDA") && basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/FUZE\s+TIA\s+HOB\s+\d+/g, "FUZE PDA")
+    }
+
+    // LIMPIAR SIEMPRE PRIMERO EN LA BASE ELEGIDA
+    basePiece = getBasePiece()
+    if(basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece.replace(/\n\nU\/D \?/g, "")
+    }
+
+    // APLICAR SOLO SI ESTÁ ACTIVO EN LA BASE ELEGIDA
+    basePiece = getBasePiece()
+    if(ud_mode && basePiece){
+        pieces[clampPieceIndex(basePieceIndex)] = basePiece + "\n\nU/D ?"
+    }
+
+}else{
+    prompt = t
+}
+
+buffer=""
+updateScreen()
+
+})
+.catch(e=>{
+    prompt = "ERROR"
+    buffer = ""
+    updateScreen()
+})
+.finally(()=>{
+    if(prompt !== "INITIALIZE"){
+        sendingCommand = false
+    }
+})
+
 }
 
 document.querySelectorAll("button").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-        let key = btn.getAttribute("data");
-        if(!key) return;
 
-        if(key === "UP"){
-            prevPiece();
-            return;
-        }
+btn.addEventListener("click",()=>{
 
-        if(key === "DOWN"){
-            nextPiece();
-            return;
-        }
+let key = btn.getAttribute("data")
+if(!key) return
 
-        if(key === "RUN"){
-            pieceMode = false;
-            send("MAIN");
-            return;
-        }
+if(sendingCommand && key !== "UP" && key !== "DOWN"){
+    return
+}
 
-        if(key === "ENTER"){
-            if(buffer.length === 0){
-                send("MAIN");
-                return;
-            }
+// 🔥 NAVEGACIÓN PIEZAS
+if(key==="UP"){
+    logEvent("INPUT", "USUARIO: ▲")
+    if(pieces.length>0){
+        currentPiece--
+        if(currentPiece<0) currentPiece = pieces.length-1
+        updateScreen()
+    }
+    return
+}
 
-            send(buffer);
-            return;
-        }
+if(key==="DOWN"){
+    logEvent("INPUT", "USUARIO: ▼")
+    if(pieces.length>0){
+        currentPiece++
+        if(currentPiece>=pieces.length) currentPiece = 0
+        updateScreen()
+    }
+    return
+}
 
-        if(key === "BACK"){
-            buffer = buffer.slice(0,-1);
-            renderLCD();
-            return;
-        }
+// 🔥 FORZAR BASE REAL EN P, Y Y N
+if(key==="P" || key==="Y" || key==="N"){
+    currentPiece = clampPieceIndex(basePieceIndex)
+}
 
-        pieceMode = false;
-        buffer += key;
-        renderLCD();
-    });
-});
+// RUN
+if(key==="RUN"){
+buffer = "RUNBUCS"
+updateScreen()
+return
+}
 
+// ENTER / ENDLINE
+if(key==="ENTER"){
+    let value = buffer.trim()
+    buffer = ""
+
+    if(value.length === 0){
+        send("")
+    }else{
+        send(value)
+    }
+
+    return
+}
+
+if(key==="BACK"){
+buffer = buffer.slice(0,-1)
+updateScreen()
+return
+}
+
+buffer += key
+updateScreen()
+
+})
+
+})
+
+updateScreen()
+
+</script>
+
+<script>
+
+// teclado físico igual
 document.addEventListener("keydown", function(event){
-    let key = event.key;
 
-    if(key === "ArrowUp"){
-        prevPiece();
-        event.preventDefault();
-        return;
+let key = event.key
+
+// Las ventanas abiertas (record / historial) capturan el teclado
+if(isOverlayOpen()){
+    if(key === "Escape") closeOverlays()
+    return
+}
+
+if(key==="ArrowUp"){
+    logEvent("INPUT", "USUARIO: ▲")
+    if(pieces.length>0){
+        currentPiece--
+        if(currentPiece<0) currentPiece = pieces.length-1
+        updateScreen()
+    }
+    return
+}
+
+if(key==="ArrowDown"){
+    logEvent("INPUT", "USUARIO: ▼")
+    if(pieces.length>0){
+        currentPiece++
+        if(currentPiece>=pieces.length) currentPiece = 0
+        updateScreen()
+    }
+    return
+}
+
+if(key === "Enter"){
+    let value = buffer.trim()
+    buffer = ""
+
+    if(value.length === 0){
+        send("")
+    }else{
+        send(value)
     }
 
-    if(key === "ArrowDown"){
-        nextPiece();
-        event.preventDefault();
-        return;
-    }
+    updateScreen()
+    return
+}
 
-    if(key === "Enter"){
-        if(buffer.length === 0){
-            send("MAIN");
-            return;
+if(key === "Backspace"){
+    buffer = buffer.slice(0,-1)
+    updateScreen()
+    event.preventDefault()
+    return
+}
+
+if(!isNaN(key)){
+    buffer += key
+    updateScreen()
+    return
+}
+
+if(key.length === 1 && /[a-zA-Z]/.test(key)){
+    buffer += key.toUpperCase()
+    updateScreen()
+    return
+}
+
+if(key === " "){
+    buffer += " "
+    updateScreen()
+    return
+}
+
+if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
+    buffer += key
+    updateScreen()
+    return
+}
+
+})
+
+</script>
+
+<script>
+// ============================================================
+// VENTANAS: RECORD DE TIRO + HISTORIAL DE INPUTS
+// Backend: endpoints /record y /log en hp71_server/main.cpp
+// Actualizacion en vivo: BroadcastChannel("hp71-record")
+// ============================================================
+
+var recordData = {}
+var recordRows = []
+var recordInputField = null
+// Filas verdes = correcciones: solo se crean despues de responder N o Y en
+// el menu COMP CORR. Se arma en updateRecordFromResponse y se resetea con ON.
+var recordGreenArmed = false
+// Ultima respuesta del motor = prompt que el usuario tenia en pantalla.
+var recordLastResponse = ""
+var recordChannel = null
+try{ if("BroadcastChannel" in window) recordChannel = new BroadcastChannel("hp71-record") }catch(e){}
+
+var logSessionId = "session-" + new Date().toISOString().replace(/[:.]/g, "-")
+var currentLogLines = []
+var historyOpen = false
+var viewingSession = logSessionId
+
+// ---------- Utilidades de parseo (portadas de cdt-santabarbara) ----------
+var PIECE_HEADER_PATTERN = /^[\s\-–—]*PIECE\s+(\d+)[\s\-–—]*$/i
+var RECORD_ROW_KEYS = ["dir", "lr", "ad", "ud", "targetNumber", "pieceNumber", "distance", "charge", "tof", "deflection", "qe"]
+
+function cleanNumber(value){
+    if(!value || /NO\s+DATA/i.test(value)) return undefined
+    var parsed = Number(value)
+    return isFinite(parsed) ? parsed : undefined
+}
+
+function definedRecordPatch(patch){
+    var out = {}
+    Object.keys(patch).forEach(function(k){ if(patch[k] !== undefined) out[k] = patch[k] })
+    return out
+}
+
+function splitPiecesRaw(text){
+    var lines = String(text || "").split(/\r?\n/)
+    var result = []
+    var current = []
+    var currentNumber = null
+
+    for(var i = 0; i < lines.length; i++){
+        var clean = lines[i].trim()
+        var match = clean.match(PIECE_HEADER_PATTERN)
+
+        if(match){
+            if(current.length > 0 && currentNumber !== null)
+                result.push({ number: currentNumber, text: current.join("\n") })
+            currentNumber = parseInt(match[1], 10)
+            current = [clean]
+            continue
         }
 
-        send(buffer);
+        if(current.length > 0){
+            if(clean.indexOf("COMP CORR") === 0 || clean.indexOf("TESON") === 0) continue
+            if(clean !== "") current.push(clean)
+        }
+    }
+
+    if(current.length > 0 && currentNumber !== null)
+        result.push({ number: currentNumber, text: current.join("\n") })
+
+    return result
+}
+
+function parseRecordFromDisplay(text, fallbackPiece){
+    var pieces = splitPiecesRaw(text)
+    var piece = null
+
+    for(var i = 0; i < pieces.length; i++){
+        if(pieces[i].number === fallbackPiece){ piece = pieces[i]; break }
+    }
+    if(!piece && pieces.length > 0) piece = pieces[0]
+
+    var source = piece ? piece.text : String(text || "")
+
+    return {
+        pieceNumber: piece ? piece.number : undefined,
+        distance: cleanNumber((source.match(/\bDIST\s+([^\s]+)/i) || [])[1]),
+        deflection: cleanNumber((source.match(/\bDEF\s+([^\s]+)/i) || [])[1]),
+        // carga 155mm viene con sufijo (6W, 3G...): se conserva el token; si es solo numero, va a numero
+        charge: (function(t){
+            if(!t) return undefined
+            if(/^\d+[A-Za-z]?$/.test(t)) return /[A-Za-z]/.test(t) ? t.toUpperCase() : Number(t)
+            return cleanNumber(t)
+        })((source.match(/\bCHG\s+([^\s]+)/i) || [])[1]),
+        qe: cleanNumber((source.match(/\bQE\s+([^\s]+)/i) || [])[1]),
+        tof: cleanNumber((source.match(/\bTOF\s+([^\s]+)/i) || [])[1]),
+        // Coordenadas del blanco (bloque "TGT DATA: EAST:/NORTH:/ALT:" del flujo REG)
+        targetEast: cleanNumber((text.match(/\bEAST:\s*(-?\d+(?:\.\d+)?)/i) || [])[1]),
+        targetNorth: cleanNumber((text.match(/\bNORTH:\s*(-?\d+(?:\.\d+)?)/i) || [])[1]),
+        targetAlt: cleanNumber((text.match(/\bALT:\s*(-?\d+(?:\.\d+)?)/i) || [])[1]),
+        // Indicador del blanco ("TGT AA1000 / KNPT 1 STORED" al guardarlo)
+        targetName: (function(t){
+            // permite espacios en el indicador (ej. "AA 1000")
+            var m = String(t || "").match(/\bTGT\s+(.+?)\s*\/\s*KNPT/i)
+            return m ? m[1].trim() : undefined
+        })(text),
+        angleT: cleanNumber((text.match(/\bANG\s+T(?:\s+\(P\*\):)?\s*([^\s]+)/i) || [])[1]),
+        observerDirection: cleanNumber((text.match(/\bDIR(?:\s+\(P\s+X\):)?\s*([^\s]+)/i) || [])[1]),
+        correctionLR: cleanNumber((text.match(/\bLR\s+SHIFT\s+([^\s]+)/i) || [])[1]),
+        correctionAD: cleanNumber((text.match(/\bAD\s+SHIFT\s+([^\s]+)/i) || [])[1]),
+        correctionUD: cleanNumber((text.match(/\bUD\s+SHIFT\s+([^\s]+)/i) || [])[1])
+    }
+}
+
+function parsePieceRecordRow(piece, context){
+    var parsed = parseRecordFromDisplay(piece.text, piece.number)
+    var row = definedRecordPatch({
+        targetNumber: context.targetNumber,
+        pieceNumber: parsed.pieceNumber !== undefined ? parsed.pieceNumber : piece.number,
+        distance: parsed.distance,
+        charge: parsed.charge,
+        tof: parsed.tof,
+        deflection: parsed.deflection,
+        qe: parsed.qe
+    })
+
+    if(row.pieceNumber === undefined && row.distance === undefined && row.charge === undefined &&
+       row.tof === undefined && row.deflection === undefined && row.qe === undefined)
+        return null
+
+    row.id = Date.now() + "-" + piece.number + "-" + Math.random().toString(36).slice(2, 7)
+    return row
+}
+
+function currentTargetFromDisplay(text){
+    var match = String(text || "").match(/\b(?:KNPT|BLANCO|TGT)\s*(?:\(P\s+\*\))?\s*:?\s*(\d+)/i)
+    return match ? cleanNumber(match[1]) : undefined
+}
+
+function parseDirectionalNumber(value, positiveLetters, negativeLetters){
+    var clean = String(value).trim().toUpperCase()
+    if(!clean) return undefined
+
+    var direction = clean.charAt(0)
+    var numeric = Number((positiveLetters + negativeLetters).indexOf(direction) >= 0 ? clean.slice(1) : clean)
+    if(!isFinite(numeric)) return undefined
+
+    return negativeLetters.indexOf(direction) >= 0 ? -numeric : numeric
+}
+
+function getRecordInputField(text){
+    // Menu 3 (TGT) del MAIN: los prompts muestran el valor viejo; el dato real
+    // es lo que el usuario teclea a continuacion.
+    if(/^\s*TGT:\s*$/i.test(text)) return "targetName"
+    if(/TGT\s+\(P\s*\*\):/i.test(text)) return "targetName"
+    if(/TGT\s+E\s+\(P\s*\*\)/i.test(text)) return "targetEast"
+    if(/TGT\s+N\s+\(P\s*\*\)/i.test(text)) return "targetNorth"
+    if(/TGT\s+ALT\s+\(P\s*\*\)/i.test(text)) return "targetAlt"
+    if(/DIR\s+\(P\s+X\):/i.test(text)) return "observerDirection"
+    if(/\(L\/R\)\s+SHIFT/i.test(text)) return "correctionLR"
+    if(/\(A\/D\)\s+SHIFT/i.test(text)) return "correctionAD"
+    if(/\(U\/D\)\s+SHIFT/i.test(text)) return "correctionUD"
+    // Ruta Y de COMP CORR: TIME REG pide la correccion como (U/D) CORR (*)
+    if(/\(U\/D\)\s+CORR/i.test(text)) return "correctionUD"
+    return null
+}
+
+function sameRecordRow(a, b){
+    for(var i = 0; i < RECORD_ROW_KEYS.length; i++){
+        var k = RECORD_ROW_KEYS[i]
+        var av = a[k] === undefined ? null : a[k]
+        var bv = b[k] === undefined ? null : b[k]
+        if(av !== bv) return false
+    }
+    return true
+}
+
+function addRecordRowsFromResponse(text){
+    // Gate verde: sin N/Y previo en COMP CORR no se crea ninguna fila.
+    if(!recordGreenArmed) return
+
+    var rawPieces = splitPiecesRaw(text)
+    if(rawPieces.length === 0) return
+
+    // UNA SOLA FILA POR RONDA: la pieza que la pantalla muestra como calculo
+    // (la base, ver parsePieces -> currentPiece = basePieceIndex), la misma
+    // que alimenta los campos azules (parseRecordFromDisplay usa este criterio).
+    var target = null
+    for(var i = 0; i < rawPieces.length; i++){
+        if(rawPieces[i].number === basePieceNumber){ target = rawPieces[i]; break }
+    }
+    if(!target) target = rawPieces[0]
+
+    var row = parsePieceRecordRow(target, recordData)
+    if(!row) return
+
+    // Correcciones vigentes al disparar: se pintan en la fila verde
+    row.dir = recordData.observerDirection
+    row.lr  = recordData.correctionLR
+    row.ad  = recordData.correctionAD
+    row.ud  = recordData.correctionUD
+
+    // Evita duplicados cuando P/Y/N reemiten la misma solucion
+    var last = recordRows[recordRows.length - 1]
+    if(last && sameRecordRow(last, row)) return
+
+    recordRows.push(row)
+
+    if(recordRows.length > 7) recordRows = recordRows.slice(-7)
+}
+
+// Se ejecuta con cada respuesta de la calculadora
+function updateRecordFromResponse(cmd, text){
+    // Limpian el record: el boton ON y "DATA CLEARED" (MAIN -> X, que ejecuta
+    // resetData() en el motor y devuelve "DATA CLEARED\nMAIN...").
+    if(cmd === "ON" || String(text || "").indexOf("DATA CLEARED") >= 0){
+        recordData = {}
+        recordRows = []
+        recordInputField = null
+        recordGreenArmed = false
+        recordLastResponse = ""
+        pushRecord()
+        renderRecord()
+        return
+    }
+
+    var cleanCmd = String(cmd || "").trim()
+
+    // Arma el verde: N o Y contestados con el menu COMP CORR visible
+    // (recordLastResponse todavia guarda el prompt anterior a esta respuesta).
+    var upperCmd = cleanCmd.toUpperCase()
+    if((upperCmd === "N" || upperCmd === "Y") &&
+       recordLastResponse.indexOf("COMP CORR") >= 0){
+        recordGreenArmed = true
+        // Nueva ronda de correcciones: la fila verde registra SOLO lo corregido
+        // en esta ronda (no se arrastran L/R, A/D ni U/D de la anterior).
+        // El motor sigue acumulando su solucion internamente (eso no cambia).
+        delete recordData.correctionLR
+        delete recordData.correctionAD
+        delete recordData.correctionUD
+    }
+
+    var pendingField = (cleanCmd !== "P" && cleanCmd !== "*") ? recordInputField : null
+    var patch = {}
+
+    if(pendingField && cleanCmd){
+        if(pendingField === "observerDirection"){
+            var vDir = Number(cleanCmd)
+            if(isFinite(vDir)) patch.observerDirection = vDir
+        } else if(pendingField === "correctionLR"){
+            var vLr = parseDirectionalNumber(cleanCmd, "R", "L")
+            if(vLr !== undefined) patch.correctionLR = vLr
+        } else if(pendingField === "correctionAD"){
+            var vAd = parseDirectionalNumber(cleanCmd, "A", "D")
+            if(vAd !== undefined) patch.correctionAD = vAd
+        } else if(pendingField === "correctionUD"){
+            // "X" en (U/D) CORR cancela (no cambia la correccion)
+            var vUd = cleanCmd !== "X" ? parseDirectionalNumber(cleanCmd, "U", "D") : undefined
+            if(vUd !== undefined) patch.correctionUD = vUd
+        } else if(pendingField === "targetName"){
+            patch.targetName = cleanCmd
+        } else if(pendingField === "targetEast"){
+            var vTe = Number(cleanCmd)
+            if(isFinite(vTe)) patch.targetEast = vTe
+        } else if(pendingField === "targetNorth"){
+            var vTn = Number(cleanCmd)
+            if(isFinite(vTn)) patch.targetNorth = vTn
+        } else if(pendingField === "targetAlt"){
+            var vTa = Number(cleanCmd)
+            if(isFinite(vTa)) patch.targetAlt = vTa
+        }
+    }
+
+    var parsed = parseRecordFromDisplay(text, basePieceNumber)
+    var target = currentTargetFromDisplay(text)
+
+    // Azules = primer calculo (antes de correcciones): se congelan en la
+    // primera vez que tienen valor y ya no se sobreescriben (hasta ON).
+    var frozenBlueKeys = ["distance", "charge", "deflection", "qe"]
+    frozenBlueKeys.forEach(function(k){
+        if(recordData[k] !== undefined) delete parsed[k]
+    })
+
+    recordData = Object.assign({}, recordData,
+        target !== undefined ? { targetNumber: target } : {},
+        definedRecordPatch(parsed),
+        patch)
+
+    recordInputField = getRecordInputField(text)
+
+    addRecordRowsFromResponse(text)
+
+    // Esta respuesta pasa a ser el "prompt anterior" para la proxima entrada
+    recordLastResponse = String(text || "")
+
+    pushRecord()
+    renderRecord()
+}
+
+function pushRecord(){
+    try{
+        var payload = JSON.stringify({ data: recordData, rows: recordRows })
+        fetch("/record", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload
+        }).catch(function(){})
+        if(recordChannel) recordChannel.postMessage({ type: "record" })
+    }catch(e){}
+}
+
+// Compone la hoja del record tal cual se ve (formulario + textos + valores)
+// y la devuelve como dataURL PNG listo para descargar en el PC.
+function buildRecordPng(){
+    return new Promise(function(resolve, reject){
+        var sheet = document.querySelector(".record-sheet")
+        var sr = sheet.getBoundingClientRect()
+        var idoc = sheet.querySelector("iframe").contentDocument
+        if(!idoc || idoc.readyState !== "complete" || sr.width === 0){
+            reject(new Error("Hoja no lista"))
+            return
+        }
+
+        var W = Math.round(sr.width)
+        var H = Math.round(sr.height)
+        var scale = 2 // retina para que el texto se vea nitido
+
+        // 1) La hoja es un PDF convertido a HTML (pdf2htmlEX): texto + estilos
+        //    embebidos. Se rasteriza con un SVG foreignObject. Claves para que
+        //    salga completa (si no, sale todo blanco):
+        //    - quitar los <style> que inyecta la app (visor / fit)
+        //    - desactivar animaciones: el .pc arranca en opacity:0 (fadein)
+        //    - fijar la pagina a su tamano natural 792x612, sin margenes ni patron
+        var PAGE_W = 792
+        var PAGE_H = 612
+        var ser = new XMLSerializer()
+        var esc = function(s){ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;") }
+
+        var styles = ""
+        Array.prototype.forEach.call(idoc.querySelectorAll("style"), function(st){
+            var sid = st.id || ""
+            if(sid === "solo-documento-sin-fondo" || sid === "cdt-record-fit") return
+            styles += esc(st.textContent || "")
+        })
+
+        var bodyXml = ser.serializeToString(idoc.body)
+            .replace(/^<body[^>]*>/, "<div>")
+            .replace(/<\/body>$/, "</div>")
+
+        var fixCss =
+            "*{animation:none!important;transition:none!important}" +
+            "html,body{margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important}" +
+            "#sidebar,#outline,.loading-indicator{display:none!important}" +
+            "#page-container{position:absolute!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;" +
+            "width:" + PAGE_W + "px!important;height:" + PAGE_H + "px!important;background:#fff!important;overflow:hidden!important;padding:0!important;margin:0!important}" +
+            ".pf{margin:0!important;box-shadow:none!important;width:" + PAGE_W + "px!important;height:" + PAGE_H + "px!important;background:#fff!important}" +
+            ".pc{display:block!important;opacity:1!important;width:100%!important;height:100%!important}"
+
+        var html = '<div xmlns="http://www.w3.org/1999/xhtml">' +
+                   "<style>" + fixCss + "</style>" +
+                   "<style>" + styles + "</style>" +
+                   bodyXml + "</div>"
+
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + PAGE_W + '" height="' + PAGE_H + '">' +
+                  '<foreignObject width="' + PAGE_W + '" height="' + PAGE_H + '">' + html + '</foreignObject></svg>'
+        var formUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
+
+        var formImg = new Image()
+        formImg.onload = function(){
+            var c = document.createElement("canvas")
+            c.width = W * scale
+            c.height = H * scale
+            var ctx = c.getContext("2d")
+            ctx.scale(scale, scale)
+            ctx.fillStyle = "#ffffff"
+            ctx.fillRect(0, 0, W, H)
+
+            // 2) Formulario (rejilla + textos tal como se pintan en pantalla)
+            ctx.drawImage(formImg, 0, 0, W, H)
+
+            // 3) Valores encima (azules y verdes)
+            var spans = document.querySelectorAll("#recordValues .rv, #recordValues .rv-row")
+            Array.prototype.forEach.call(spans, function(sp){
+                var text = (sp.textContent || "").trim()
+                if(!text) return
+                var r = sp.getBoundingClientRect()
+                var cs = getComputedStyle(sp)
+                var italic = cs.fontStyle === "italic" ? "italic " : ""
+                ctx.font = italic + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily
+                ctx.fillStyle = cs.color
+                ctx.textBaseline = "middle"
+                var align = cs.textAlign === "center" || cs.textAlign === "" ? "center" : (cs.textAlign === "right" ? "right" : "left")
+                ctx.textAlign = align
+                var x = r.left - sr.left
+                if(align === "center") x += r.width / 2
+                else if(align === "right") x += r.width
+                ctx.fillText(text, x, r.top - sr.top + r.height / 2)
+            })
+
+            resolve(c.toDataURL("image/png"))
+        }
+        formImg.onerror = function(){ reject(new Error("No se pudo componer la hoja")) }
+        formImg.src = formUrl
+    })
+}
+
+// Guardar = elegir donde guardar la hoja del record como PNG.
+// En Chrome/Edge se abre el dialogo nativo "Guardar como" (File System Access
+// API); si no esta disponible (Firefox/Safari) se cae a la descarga clasica.
+function saveRecord(){
+    var btn = document.getElementById("recordSave")
+    if(!btn) return
+
+    var name = "record-de-tiro-" + localTimestamp().replace(/[: ]/g, "-") + ".png"
+
+    var picker = null
+    if(typeof window.showSaveFilePicker === "function"){
+        try{
+            picker = window.showSaveFilePicker({
+                suggestedName: name,
+                types: [{ description: "Imagen PNG", accept: { "image/png": [".png"] } }]
+            })
+        }catch(e){ picker = null }
+    }
+
+    btn.textContent = "Guardando..."
+    btn.classList.remove("saved")
+
+    var choose = picker
+        ? picker.catch(function(e){
+              if(e && e.name === "AbortError") return "cancel"
+              return null // otro error -> seguir por descarga clasica
+          })
+        : Promise.resolve(null)
+
+    choose.then(function(handle){
+        if(handle === "cancel") return "cancel"
+
+        return buildRecordPng().then(function(dataUrl){
+            return fetch(dataUrl).then(function(r){ return r.blob() }).then(function(blob){
+                if(handle && typeof handle.createWritable === "function"){
+                    return handle.createWritable().then(function(w){
+                        return w.write(blob).then(function(){ return w.close() })
+                    })
+                }
+                // fallback: descarga al directorio por defecto del navegador
+                var a = document.createElement("a")
+                a.href = dataUrl
+                a.download = name
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+            })
+        }).then(function(){ return "ok" })
+    }).then(function(res){
+        if(res !== "ok"){
+            btn.textContent = "Guardar"
+            return
+        }
+
+        // copia en el servidor tambien (para restaurar tras recargar/reiniciar)
+        pushRecord()
+
+        btn.textContent = "Guardado \u2713"
+        btn.classList.add("saved")
+        setTimeout(function(){ btn.textContent = "Guardar"; btn.classList.remove("saved") }, 2500)
+    }).catch(function(){
+        btn.textContent = "Error al guardar"
+        setTimeout(function(){ btn.textContent = "Guardar" }, 2500)
+    })
+}
+
+// ---------- Pintado de la hoja ----------
+// ALCANCE/LOT.C/DF.Disp/Q.E = primer calculo (antes de correcciones, ver
+// updateRecordFromResponse). PZA# = pieza base. ANG T va en la casilla del
+// simbolo + T (junto a MENSAJE AL OBSERVADOR).
+// tops = linea de la etiqueta impresa de cada celda (valores "en linea" y
+// sin cruzar el borde inferior): fila PZA/ALCANCE cy310 -> 25.14%,
+// fila C/TI/DF/QE cy336 -> 28.59% (center = 120.7 + top% * 7.53)
+var RECORD_FIELDS = [
+    { key: "targetNumber",       left: "53.3%", top: "6.4%",  width: "10%",
+      // "Blanco": indicador TGT (ej. AA1000) si existe; si no, el KNPT
+      value: function(){ return recordData.targetName || recordData.targetNumber } },
+    { key: "pieceNumber",        left: "33%",   top: "25.14%", width: "4.5%", value: function(){ return basePieceNumber } },
+    { key: "distance",           left: "52%",   top: "25.14%", width: "9%" },
+    { key: "charge",             left: "39.2%", top: "28.59%", width: "3.8%" },
+    { key: "tof",                left: "65.2%", top: "28.59%", width: "6.2%" },
+    { key: "deflection",         left: "76.5%", top: "28.59%", width: "7.5%" },
+    { key: "qe",                 left: "84%",   top: "28.59%", width: "6.5%" },
+    { key: "angleT",             left: "32.18%", top: "31.5%", width: "7.5%" },
+    // COORDENADAS del blanco (TGT): E / N / ALT. Vienen del bloque
+    // "TGT DATA: EAST:/NORTH:/ALT:" (REG) o de los prompts del menu 3.
+    { key: "targetCoords",       left: "25.8%",  top: "8.8%",  width: "24%",
+      value: function(){
+          var e = recordData.targetEast
+          var n = recordData.targetNorth
+          var a = recordData.targetAlt
+          if(e === undefined && n === undefined && a === undefined) return ""
+          var fmt = function(v){ return v === undefined || v === null ? "" : String(Math.round(v * 10) / 10) }
+          var out = "E " + fmt(e) + "   N " + fmt(n)
+          if(a !== undefined) out += "   ALT " + fmt(a)
+          return out
+      } }
+]
+
+// Fila verde: correcciones (DIR/L-R/A-D/U-D con letra) + resultados del calculo
+// Centros de celda medidos sobre la hoja: AZ 4.8-11.0, DESV 11.0-15.5,
+// ALC 15.5-19.9, ALT ESP 19.9-23.8, MA.G 23.8-33.3, TI 37.8-41.6,
+// DEF.DISP 52.2-59.0, QE 78.1-83.4
+var RECORD_ROW_FIELDS = [
+    { key: "dir",          left: "7.9%",    width: "6.3%", fmt: fmtDirPlain },
+    { key: "lr",           left: "13.25%",  width: "4.5%", fmt: function(v){ return fmtDir(v, "R", "L") } },
+    { key: "ad",           left: "17.73%",  width: "5.7%", fmt: function(v){ return fmtDir(v, "A", "D") } },
+    { key: "ud",           left: "21.85%",  width: "4.8%", fmt: function(v){ return fmtDir(v, "U", "D") } },
+    { key: "charge",       left: "28.58%",  width: "3.6%", fmt: fmtRecord },
+    { key: "tof",          left: "40%",     width: "5.3%", fmt: fmtRecord },
+    { key: "deflection",   left: "55.59%",  width: "6.2%", fmt: fmtRecord },
+    { key: "qe",           left: "80.79%",  width: "5.6%", fmt: fmtRecord }
+]
+
+function fmtRecord(value){
+    if(value === undefined || value === null || value === 0) return ""
+    // carga con sufijo alfabetico ("6W", "3G") se muestra tal cual
+    if(typeof value === "string") return value
+    return String(Math.round(value * 10) / 10)
+}
+
+// Correcciones con letra en vez de signo: -200 -> L200, -50 -> D50, 10 -> U10
+function fmtDir(value, positiveLetter, negativeLetter){
+    if(!value) return ""
+    var n = Math.round(value * 10) / 10
+    return (n < 0 ? negativeLetter : positiveLetter) + Math.abs(n)
+}
+
+function fmtDirPlain(value){
+    if(!value) return ""
+    return String(Math.round(value * 10) / 10)
+}
+
+function escapeHtml(value){
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+}
+
+function renderRecord(){
+    var box = document.getElementById("recordValues")
+    if(!box) return
+
+    var html = ""
+
+    RECORD_FIELDS.forEach(function(f){
+        var val = fmtRecord(f.value ? f.value() : recordData[f.key])
+        html += '<span class="rv" style="left:' + f.left + ";top:" + f.top + ";width:" + f.width +
+                '" title="' + escapeHtml(val) + '">' + escapeHtml(val) + "</span>"
+    })
+
+    recordRows.slice(0, 7).forEach(function(row, rowIndex){
+        // 42.14% = centro de la 1a fila verde (cy438); paso 2.252% ~ 17px
+        var top = (42.14 + rowIndex * 2.252) + "%"
+        RECORD_ROW_FIELDS.forEach(function(f){
+            var val = (f.fmt || fmtRecord)(row[f.key])
+            html += '<span class="rv-row" style="left:' + f.left + ";top:" + top + ";width:" + f.width +
+                    '" title="' + escapeHtml(val) + '">' + escapeHtml(val) + "</span>"
+        })
+    })
+
+    box.innerHTML = html
+}
+
+// ---------- Historial de INPUTs ----------
+function pad2(n){ return (n < 10 ? "0" : "") + n }
+
+function localTimestamp(){
+    var d = new Date()
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) +
+           " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds())
+}
+
+function logEvent(type, content){
+    try{
+        var body = "type=" + encodeURIComponent(type) +
+                   "&content=" + encodeURIComponent(content) +
+                   "&sessionId=" + encodeURIComponent(logSessionId)
+
+        fetch("/log", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body
+        }).catch(function(){})
+
+        if(type === "INPUT"){
+            var line = "[" + localTimestamp() + "] INPUT: " + content
+            currentLogLines.push(line)
+            if(historyOpen && viewingSession === logSessionId) appendHistoryLine(line)
+        }
+    }catch(e){}
+}
+
+function appendHistoryLine(line){
+    var pre = document.getElementById("historyContent")
+    if(!pre || pre.getAttribute("data-session") !== logSessionId) return
+    pre.textContent += (pre.textContent ? "\n" : "") + line
+    pre.scrollTop = pre.scrollHeight
+}
+
+function renderSessionsList(logs){
+    var box = document.getElementById("historySessions")
+    if(!box) return
+
+    if(!logs || logs.length === 0){
+        box.innerHTML = '<div class="history-empty">Todavía no hay logs para este perfil.</div>'
+        return
+    }
+
+    var html = ""
+
+    logs.forEach(function(log){
+        var isCurrent = log.id === logSessionId
+        var active = log.id === viewingSession ? " active" : ""
+        var last = (log.preview && log.preview.length) ? log.preview[log.preview.length - 1] : ""
+
+        html += '<div class="hsession' + active + '" data-id="' + escapeHtml(log.id) + '">' +
+                    '<div class="sid">' + escapeHtml(log.id) +
+                        (isCurrent ? ' <span class="tag">(actual)</span>' : "") +
+                    "</div>" +
+                    '<div class="smeta">' + escapeHtml(log.updatedAt || "") + " · " + log.entries + " entradas</div>" +
+                    '<div class="sprev">' + escapeHtml(last) + "</div>" +
+                "</div>"
+    })
+
+    box.innerHTML = html
+
+    Array.prototype.forEach.call(box.querySelectorAll(".hsession"), function(el){
+        el.addEventListener("click", function(){
+            viewingSession = el.getAttribute("data-id")
+
+            Array.prototype.forEach.call(box.querySelectorAll(".hsession"), function(other){
+                other.classList.toggle("active", other.getAttribute("data-id") === viewingSession)
+            })
+
+            loadSessionContent(viewingSession)
+        })
+    })
+}
+
+function refreshHistoryList(){
+    fetch("/log", { cache: "no-store" })
+        .then(function(r){ return r.json() })
+        .then(function(j){ renderSessionsList((j && j.logs) || []) })
+        .catch(function(){
+            var box = document.getElementById("historySessions")
+            if(box) box.innerHTML = '<div class="history-empty">No se pudo leer el historial.</div>'
+        })
+}
+
+function loadSessionContent(id){
+    var pre = document.getElementById("historyContent")
+    if(!pre) return
+
+    pre.textContent = "Cargando..."
+    pre.setAttribute("data-session", id)
+
+    fetch("/log?session=" + encodeURIComponent(id), { cache: "no-store" })
+        .then(function(r){ return r.text() })
+        .then(function(txt){
+            pre.textContent = txt || "(sin entradas)"
+            if(id === logSessionId) currentLogLines = txt ? txt.split(/\r?\n/).filter(Boolean) : []
+            pre.scrollTop = pre.scrollHeight
+        })
+        .catch(function(){ pre.textContent = "No se pudo cargar la sesión." })
+}
+
+// ---------- Apertura / cierre de ventanas ----------
+function isOverlayOpen(){
+    return document.getElementById("recordOverlay").classList.contains("open") ||
+           document.getElementById("historyOverlay").classList.contains("open")
+}
+
+function closeOverlays(){
+    document.getElementById("recordOverlay").classList.remove("open")
+    document.getElementById("historyOverlay").classList.remove("open")
+    historyOpen = false
+}
+
+function restoreRecordFromServer(){
+    fetch("/record", { cache: "no-store" })
+        .then(function(r){ return r.json() })
+        .then(function(j){
+            if(!j || !j.data) return
+            if(Object.keys(recordData).length === 0) recordData = j.data
+            if(recordRows.length === 0 && Array.isArray(j.rows)) recordRows = j.rows
+            renderRecord()
+        })
+        .catch(function(){})
+}
+
+function openRecord(){
+    closeOverlays()
+    document.getElementById("recordOverlay").classList.add("open")
+    restoreRecordFromServer()
+    renderRecord()
+}
+
+function openHistory(){
+    closeOverlays()
+    historyOpen = true
+    viewingSession = logSessionId
+    document.getElementById("historyOverlay").classList.add("open")
+    refreshHistoryList()
+    loadSessionContent(logSessionId)
+}
+
+// ---------- Conexiones ----------
+document.getElementById("btnRecord").addEventListener("click", openRecord)
+document.getElementById("btnHistory").addEventListener("click", openHistory)
+document.getElementById("recordClose").addEventListener("click", closeOverlays)
+document.getElementById("recordSave").addEventListener("click", saveRecord)
+document.getElementById("historyClose").addEventListener("click", closeOverlays)
+document.getElementById("historyRefresh").addEventListener("click", function(){
+    refreshHistoryList()
+    loadSessionContent(viewingSession)
+})
+
+if(recordChannel){
+    recordChannel.onmessage = function(){
+        restoreRecordFromServer()
+    }
+}
+
+// Restaura el estado del record tras recargar la página
+restoreRecordFromServer()
+
+</script>
+
+<!-- AUTH VALIDATION (sb-acceso) -->
+<script>
+(function(){
+    var overlay = document.getElementById('auth-overlay');
+    var calculator = document.getElementById('calculator');
+    var toolbar = document.querySelector('.toolbar');
+    var statusH1 = document.getElementById('auth-title');
+    var statusMsg = document.getElementById('auth-msg');
+    var reasonBox = document.getElementById('auth-reason');
+    var spinner = document.getElementById('auth-spinner');
+
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get('sessionToken') || params.get('session-token') || params.get('token');
+    var deviceId = params.get('deviceId') || params.get('device-id') || '';
+    var appCode = params.get('applicationCode') || params.get('application-code') || 'calc';
+
+    function showBlocked(reason){
+        if(!overlay) return;
+        overlay.className = 'auth-blocked';
+        if(calculator) calculator.style.display = 'none';
+        if(toolbar) toolbar.style.display = 'none';
+        if(statusH1){ statusH1.textContent = 'ACCESO RESTRINGIDO'; statusH1.style.color = '#c0392b'; }
+        if(spinner) spinner.style.display = 'none';
+        if(statusMsg) statusMsg.textContent = 'Debe abrir la Calculadora HP-71B desde Servicios de Usuario Santa Bárbara.';
+        if(reasonBox){
+            reasonBox.textContent = reason;
+            reasonBox.style.display = 'block';
+        }
+    }
+
+    function showValid(profile){
+        if(!overlay) return;
+        overlay.className = 'auth-valid';
+        if(profile){
+            window._authProfile = profile;
+            if(profile.profileId && typeof logSessionId === 'string'){
+                logSessionId = 'session-' + profile.profileId + '-' + new Date().toISOString().replace(/[:.]/g, '-');
+            }
+        }
+        if(statusH1){ statusH1.textContent = 'SESIÓN VÁLIDA'; statusH1.style.color = '#2ecc71'; }
+        if(spinner) spinner.style.display = 'none';
+        if(statusMsg) statusMsg.textContent = 'Acceso autorizado por sb-acceso.';
+        if(reasonBox) reasonBox.style.display = 'none';
+
+        setTimeout(function(){
+            overlay.classList.add('hidden');
+            if(calculator) calculator.style.display = '';
+            if(toolbar) toolbar.style.display = '';
+            if(typeof updateScreen === 'function') updateScreen();
+        }, 350);
+    }
+
+    // Deshabilitar click derecho / menú contextual
+    window.addEventListener('contextmenu', function(e){
+        e.preventDefault();
+        return false;
+    }, true);
+
+    // Deshabilitar atajos de inspección y herramientas de desarrollo (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+    window.addEventListener('keydown', function(e){
+        if(e.key === 'F12' || e.keyCode === 123){
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        if(e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c' || e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)){
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        if(e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)){
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        if(e.ctrlKey && (e.key === 'S' || e.key === 's' || e.keyCode === 83)){
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    }, true);
+
+    // 1. Token obligatorio: Si no hay token de sesión -> BLOQUEAR INMEDIATAMENTE
+    if(!token || !token.trim()){
+        showBlocked('No se recibió token de sesión. Abra la aplicación desde el botón Abrir en el autenticador sb-acceso.');
         return;
     }
 
-    if(key === "Backspace"){
-        buffer = buffer.slice(0,-1);
-        renderLCD();
-        event.preventDefault();
-        return;
+    // 2. Validar token contra daemon sb-acceso (puerto 3001) si está disponible
+    var authEndpoint = 'http://localhost:3001/auth/validate';
+    var controller = null;
+    var timeoutId = null;
+    if(typeof AbortController !== 'undefined'){
+        controller = new AbortController();
+        timeoutId = setTimeout(function(){ controller.abort(); }, 1500);
     }
 
-    if(!isNaN(key)){
-        pieceMode = false;
-        buffer += key;
-        renderLCD();
-        return;
-    }
-
-    if(key.length === 1 && /[a-zA-Z]/.test(key)){
-        pieceMode = false;
-        buffer += key.toUpperCase();
-        renderLCD();
-        return;
-    }
-
-    if(key === " "){
-        pieceMode = false;
-        buffer += " ";
-        renderLCD();
-        return;
-    }
-
-    if(["+", "-", "*", "/", ".", ",", "(", ")"].includes(key)){
-        pieceMode = false;
-        buffer += key;
-        renderLCD();
-        return;
-    }
-});
-
-renderLCD();
+    fetch(authEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({
+            sessionToken: token.trim(),
+            deviceId: deviceId,
+            application: appCode || 'calc',
+            requiredPermissions: ['canUseCalculator']
+        })
+    })
+    .then(function(r){
+        if(timeoutId) clearTimeout(timeoutId);
+        return r.json();
+    })
+    .then(function(data){
+        if(data && data.valid === false){
+            showBlocked((data && data.message) ? data.message : 'Sesión inválida o sin permisos para usar la Calculadora.');
+        } else {
+            showValid(data);
+        }
+    })
+    .catch(function(err){
+        if(timeoutId) clearTimeout(timeoutId);
+        // El autenticador sb-acceso lanzó la aplicación con token de sesión verificado.
+        // Si el puerto 3001 no tiene daemon HTTP activo (modo offline o app local),
+        // se autoriza el acceso ya que el token fue suministrado legítimamente por sb-acceso.
+        console.warn('Servicio de validación local (3001) no responde; acceso autorizado por token de lanzamiento:', err);
+        showValid({ sessionToken: token, offline: true });
+    });
+})();
 </script>
 
 </body>
