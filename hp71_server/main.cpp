@@ -407,7 +407,11 @@ void runServer()
         std::string content;
 
         if(loadAsset("record-de-tiro.html", content))
+        {
+            // Sin cache: la hoja/JS cambian con las actualizaciones de la UI
+            res.set_header("Cache-Control", "no-store, must-revalidate");
             res.set_content(content, "text/html; charset=utf-8");
+        }
         else
         {
             res.status = 404;
@@ -455,6 +459,9 @@ void runServer()
             std::istreambuf_iterator<char>()
         );
 
+        // Sin cache: al recargar la ventana siempre toma el index.html actual
+        // (si no, el navegador puede seguir usando una version vieja de la UI).
+        res.set_header("Cache-Control", "no-store, must-revalidate");
         res.set_content(content, "text/html");
     });
 
