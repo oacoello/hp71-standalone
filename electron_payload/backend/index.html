@@ -1237,18 +1237,59 @@ function buildRecordPng(){
     })
 }
 
-// Guardar = descargar la hoja del record tal cual se ve, como PNG en el PC
+// Guardar = elegir donde guardar la hoja del record como PNG.
+// En Chrome/Edge se abre el dialogo nativo "Guardar como" (File System Access
+// API); si no esta disponible (Firefox/Safari) se cae a la descarga clasica.
 function saveRecord(){
     var btn = document.getElementById("recordSave")
     if(!btn) return
 
-    buildRecordPng().then(function(dataUrl){
-        var a = document.createElement("a")
-        a.href = dataUrl
-        a.download = "record-de-tiro-" + localTimestamp().replace(/[: ]/g, "-") + ".png"
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
+    var name = "record-de-tiro-" + localTimestamp().replace(/[: ]/g, "-") + ".png"
+
+    var picker = null
+    if(typeof window.showSaveFilePicker === "function"){
+        try{
+            picker = window.showSaveFilePicker({
+                suggestedName: name,
+                types: [{ description: "Imagen PNG", accept: { "image/png": [".png"] } }]
+            })
+        }catch(e){ picker = null }
+    }
+
+    btn.textContent = "Guardando..."
+    btn.classList.remove("saved")
+
+    var choose = picker
+        ? picker.catch(function(e){
+              if(e && e.name === "AbortError") return "cancel"
+              return null // otro error -> seguir por descarga clasica
+          })
+        : Promise.resolve(null)
+
+    choose.then(function(handle){
+        if(handle === "cancel") return "cancel"
+
+        return buildRecordPng().then(function(dataUrl){
+            return fetch(dataUrl).then(function(r){ return r.blob() }).then(function(blob){
+                if(handle && typeof handle.createWritable === "function"){
+                    return handle.createWritable().then(function(w){
+                        return w.write(blob).then(function(){ return w.close() })
+                    })
+                }
+                // fallback: descarga al directorio por defecto del navegador
+                var a = document.createElement("a")
+                a.href = dataUrl
+                a.download = name
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+            })
+        }).then(function(){ return "ok" })
+    }).then(function(res){
+        if(res !== "ok"){
+            btn.textContent = "Guardar"
+            return
+        }
 
         // copia en el servidor tambien (para restaurar tras recargar/reiniciar)
         pushRecord()

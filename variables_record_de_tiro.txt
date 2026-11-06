@@ -200,8 +200,12 @@ La hoja es un PDF convertido a HTML con pdf2htmlEX. buildRecordPng():
   - fija la pagina a 792x612 sin margenes ni patron de fondo;
   - dibuja la hoja escalada al lienzo (2x) y ENCIMA pinta los valores
     (.rv azules y .rv-row verdes) con canvas fillText;
-  - devuelve dataURL PNG y saveRecord() lo descarga como
-    record-de-tiro-<fecha>.png.
+  - devuelve dataURL PNG y saveRecord() lo guarda:
+      * Chrome/Edge: dialogo nativo "Guardar como" (showSaveFilePicker)
+        para elegir carpeta y nombre; si el usuario cancela no guarda nada.
+      * Si la API no existe (Firefox/Safari) o falla: descarga clasica al
+        directorio por defecto del navegador.
+      * Nombre sugerido: record-de-tiro-<fecha>.png
 
 ========================================================================
 Fichero: web_ui/index.html
